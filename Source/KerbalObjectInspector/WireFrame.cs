@@ -1,21 +1,20 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace KerbalObjectInspector
 {
     class WireFrame : MonoBehaviour
     {
-        public Material lineMaterial;
+        private static Material _material;
+
+        public static Material lineMaterial => _material ?? (_material = new Material(Shader.Find("Particles/Alpha Blended")));
         public Color lineColor = new Color(0.0f, 1.0f, 0.0f);
 
         private Mesh toRender;
 
         void Start()
         {
-            if (lineMaterial == null)
-            {
-                lineMaterial = new Material(Shader.Find("Self-Illumin/Diffuse"));
-            }
-
             lineMaterial.hideFlags = HideFlags.HideAndDontSave;
             lineMaterial.shader.hideFlags = HideFlags.HideAndDontSave;
 
@@ -54,14 +53,18 @@ namespace KerbalObjectInspector
 
         void DoRender(Mesh mesh)
         {
+            if (mesh == null ||transform == null || lineMaterial == null)
+                return;
             GL.wireframe = true;
 
             lineMaterial.color = lineColor;
 
             lineMaterial.SetPass(0);
-
-            Graphics.DrawMeshNow(mesh, transform.localToWorldMatrix);
-
+            try
+            {
+                Graphics.DrawMeshNow(mesh, transform.localToWorldMatrix);
+            }
+            catch (Exception e) { }
             GL.wireframe = false;
         }
     }

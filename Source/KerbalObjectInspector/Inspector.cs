@@ -14,7 +14,7 @@ namespace KerbalObjectInspector
         public Inspector(int id, Rect hierarchyRect)
         {
             inspectorID = id;
-            inspectorRect = new Rect(hierarchyRect.x + hierarchyRect.width, hierarchyRect.y, 500f, 1000f);
+            inspectorRect = new Rect(hierarchyRect.x + hierarchyRect.width, hierarchyRect.y, 500f, 800f);
             inspectorScroll = Vector2.zero;
         }
 
@@ -85,7 +85,7 @@ namespace KerbalObjectInspector
 
             GUILayout.EndScrollView();
 
-            GUI.DragWindow(new Rect(0f, 0f, 500f, 20f));
+            GUI.DragWindow();
         }
 
         private void DrawComponent(Component component)

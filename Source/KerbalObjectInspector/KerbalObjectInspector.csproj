@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>KerbalObjectInspector</RootNamespace>
     <AssemblyName>KerbalObjectInspector</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -30,40 +31,39 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\KSP Test Folder\1.0\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\KSP Test Folder\1.0\KSP_Data\Managed\UnityEngine.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="Hierarchy.cs" />
     <Compile Include="Inspector.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WireFrame.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="README.txt" />
+    <Reference Include="Assembly-CSharp">
+      <HintPath>R:\KSP_1.1.4_dev\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>R:\KSP_1.1.4_dev\KSP_x64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+    </Reference>
+    <Reference Include="System">
+      <HintPath>R:\KSP_1.1.4_dev\KSP_x64_Data\Managed\System.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>R:\KSP_1.1.4_dev\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>R:\KSP_1.1.4_dev\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy /Y "$(TargetDir)$(TargetFileName)" "D:\Documents\GitHub\KerbalObjectInspector\KerbalObjectInspector\Plugins\$(TargetFileName)"
+    <PostBuildEvent>copy /Y "$(TargetDir)$(TargetFileName)"    "D:\Users\jbb\github\KerbalObjectInspector\GameData\KerbalObjectInspector\Plugins\$(TargetFileName)"
 
-copy /Y "D:\Documents\GitHub\KerbalObjectInspector\Source\KerbalObjectInspector\README.txt" "D:\Documents\GitHub\KerbalObjectInspector\KerbalObjectInspector\README.txt"
+copy /Y "$(TargetDir)$(TargetFileName)" "D:\Users\jbb\github\KerbalObjectInspector\GameData\KerbalObjectInspector\Plugins\$(TargetFileName)"
 
-copy /Y "D:\Documents\GitHub\KerbalObjectInspector\KerbalObjectInspector\README.txt" "D:\Documents\GitHub\KerbalObjectInspector\README.md"
-
-copy /Y "$(TargetDir)$(TargetFileName)" "D:\Documents\GitHub\KerbalObjectInspector\KerbalObjectInspector\Plugins\$(TargetFileName)"
-
-xcopy "D:\Documents\GitHub\KerbalObjectInspector\KerbalObjectInspector" "D:\KSP Test Folder\1.0.5\GameData\KerbalObjectInspector" /S /E /Y</PostBuildEvent>
+start /D  D:\Users\jbb\github\KerbalObjectInspector  /WAIT deploy.bat
+if $(ConfigurationName) == Release (
+start /D  D:\Users\jbb\github\KerbalObjectInspector /WAIT buildRelease.bat
+)
+</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

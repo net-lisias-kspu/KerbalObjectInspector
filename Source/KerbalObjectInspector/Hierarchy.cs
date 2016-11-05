@@ -1,12 +1,13 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace KerbalObjectInspector
 {
     /// <summary>
     /// The Hierarchy addon. This addon is designed to inspect the scene and list all game objects via Transform searching.
     /// </summary>
-    [KSPAddon(KSPAddon.Startup.EveryScene, false)]
+    [KSPAddon(KSPAddon.Startup.AllGameScenes, false)]
     public class Hierarchy : MonoBehaviour
     {
         /// <summary>
@@ -50,6 +51,9 @@ namespace KerbalObjectInspector
         /// </summary>
         private Inspector inspector = null;
 
+        private static ApplicationLauncherButton btnLauncher = null;
+        private bool _show;
+
         /// <summary>
         /// Called when this MonoBehaviour starts.
         /// </summary>
@@ -58,16 +62,29 @@ namespace KerbalObjectInspector
             // Instantiate the selection chain.
             selectionChain = new List<Transform>();
             // Create the initial window bounds.
-            hierarchyRect = new Rect(50f, 50f, 500f, 1000f);
+            hierarchyRect = new Rect(50f, 50f, 500f, 800f);
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
-        }
 
+            if (btnLauncher == null)
+                btnLauncher = ApplicationLauncher.Instance.AddModApplication(
+                    () => _show = !_show, 
+                    () => _show = !_show, 
+                    null, null, null, null, 
+                    ApplicationLauncher.AppScenes.ALWAYS,
+                    GameDatabase.Instance.GetTexture("KerbalObjectInspector/KerbalObjectInspector", 
+                    false)
+                    );
+            DontDestroyOnLoad(this);
+        }
+        Part hoveredPart, lastHoveredPart = null;
         /// <summary>
         /// Called when this Monobehaviour is updated.
         /// </summary>
         void Update()
         {
+            if (!_show)
+                return;
             // Increment the current time since updating.
             currentTime += Time.deltaTime;
 
@@ -75,14 +92,46 @@ namespace KerbalObjectInspector
             if (currentTime >= UpdateTime)
             {
                 // Subtract time until it is less than the threshold.
-                do
-                {
-                    currentTime -= UpdateTime;
-                } while (currentTime >= UpdateTime);
+                currentTime -= UpdateTime;
+            }
+            else
+            { 
 
                 // Update the list of transforms.
                 allTrans = GameObject.FindObjectsOfType(typeof(Transform)) as Transform[];
+                if (!hierarachyLocked)
+                {
+                    hoveredPart = Mouse.HoveredPart;
+                    if (hoveredPart != lastHoveredPart)
+                    {
+                        lastHoveredPart = hoveredPart;
+                        if (hoveredPart != null)
+                        {
+                            foreach (Transform trans in allTrans)
+                                if (trans == hoveredPart.transform)
+                                {
+                                    Debug.Log("Hovered part: " + hoveredPart.partInfo.title);
+
+                                    // Signal a future selection chain change.
+                                    OnSelectionAboutToChange();
+
+                                    // If the button is closer to the root than the chain is deep,
+
+                                    // Cut the chain back down to the correct length.
+                                    selectionChain = selectionChain.GetRange(0, 0);
+
+
+                                    // Add the newly selected transform to the possible truncated selection chain.
+                                    selectionChain.Add(trans);
+
+                                    // Signal a change in the selection chain.
+                                    OnSelectionChanged();
+                                }
+                        }
+                    }
+                }
             }
+            
         }
 
         /// <summary>
@@ -90,6 +139,9 @@ namespace KerbalObjectInspector
         /// </summary>
         void OnGUI()
         {
+            if (!_show)
+                return;
+
             // Draw the Hierarchy window.
             hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy", HighLogic.Skin.window);
 
@@ -108,12 +160,24 @@ namespace KerbalObjectInspector
             }
         }
 
+        bool hierarachyLocked = false;
         /// <summary>
         /// Draws the Hierarchy window.
         /// </summary>
         /// <param name="windowID">The window ID.</param>
         void HierarchyWindow(int windowID)
         {
+            if (hierarachyLocked)
+            {
+                if (GUILayout.Button("Unlock Hierarchy display"))
+                    hierarachyLocked = false;
+            }
+            else
+            {
+                if (GUILayout.Button("Lock Hierarchy display"))
+                    hierarachyLocked = true;
+            }
+
             // Begin a scroll view.
             hierarchyScroll = GUILayout.BeginScrollView(hierarchyScroll, HighLogic.Skin.scrollView);
 
@@ -124,7 +188,7 @@ namespace KerbalObjectInspector
             GUILayout.EndScrollView();
 
             // Allow the user to drag the window.
-            GUI.DragWindow(new Rect(0f, 0f, 500f, 20f));
+            GUI.DragWindow();
         }
 
         /// <summary>
@@ -134,12 +198,20 @@ namespace KerbalObjectInspector
         /// <param name="parent">The parent to check for children. If null, draws for all root objects.</param>
         void ListChildren(int depth, Transform parent)
         {
+            if (allTrans == null)                           
+                return;
+            
+            if (selectionChain == null)
+                return;
+
             // Iterate through the list of transforms.
             foreach (Transform trans in allTrans)
+                if (trans != null)
             {
                 // If the current transform's parent is the provided, or if the current transform's parent is null AND the provided parent object is null,
-                if (trans.parent == parent)
+                if ((parent == null && trans.parent == null) || (parent != null && trans.parent == parent))
                 {
+
                     // Begin a horizontal section.
                     GUILayout.BeginHorizontal();
 
@@ -204,7 +276,7 @@ namespace KerbalObjectInspector
                 // Try to remove any WireFrame components found.
                 try
                 {
-                    Destroy(trans.GetComponent<WireFrame>());
+                    Destroy(trans.gameObject.GetComponent<WireFrame>());
                 }
                 catch { }
             }
