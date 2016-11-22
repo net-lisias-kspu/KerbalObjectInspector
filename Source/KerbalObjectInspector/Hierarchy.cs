@@ -8,7 +8,7 @@ namespace KerbalObjectInspector
     /// <summary>
     /// The Hierarchy addon. This addon is designed to inspect the scene and list all game objects via Transform searching.
     /// </summary>
-    [KSPAddon(KSPAddon.Startup.AllGameScenes, false)]
+    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     public class Hierarchy : MonoBehaviour
     {
         /// <summary>
@@ -67,17 +67,24 @@ namespace KerbalObjectInspector
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
 
-            if (btnLauncher == null)
-                btnLauncher = ApplicationLauncher.Instance.AddModApplication(
-                    () => _show = !_show, 
-                    () => _show = !_show, 
-                    null, null, null, null, 
-                    ApplicationLauncher.AppScenes.ALWAYS,
-                    GameDatabase.Instance.GetTexture("KerbalObjectInspector/KerbalObjectInspector", 
-                    false)
-                    );
+            GameEvents.onGUIApplicationLauncherReady.Add(AddButton);
+
             DontDestroyOnLoad(this);
         }
+
+        void AddButton()
+        {
+            if (btnLauncher == null)
+                btnLauncher = ApplicationLauncher.Instance.AddModApplication(
+                    () => _show = !_show,
+                    () => _show = !_show,
+                    null, null, null, null,
+                    ApplicationLauncher.AppScenes.ALWAYS,
+                    GameDatabase.Instance.GetTexture("KerbalObjectInspector/KerbalObjectInspector",
+                    false)
+                    );
+        }
+
         Part hoveredPart, lastHoveredPart = null;
         /// <summary>
         /// Called when this Monobehaviour is updated.
