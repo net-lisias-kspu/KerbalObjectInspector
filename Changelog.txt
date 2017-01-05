@@ -1,0 +1,6 @@
+﻿1.1.1	Fixed Nullrefs
+		Added toolbar button to activate/deactivate it
+		Made it active only in game scenes
+		Fixed display of wireframes
+		Added display of part mouse is over
+		Added locking of display (so that moving the mouse over something else won't change the display)

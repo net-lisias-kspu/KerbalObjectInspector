@@ -1,9 +1,18 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2013 for Windows Desktop
-VisualStudioVersion = 12.0.31101.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KerbalObjectInspector", "KerbalObjectInspector\KerbalObjectInspector.csproj", "{92ABAF34-9F63-41F2-BD7E-F1DB22F5F692}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B5446DDD-7013-4810-BCD7-66F0699B01D8}"
+	ProjectSection(SolutionItems) = preProject
+		..\buildRelease.bat = ..\buildRelease.bat
+		..\Changelog.txt = ..\Changelog.txt
+		..\deploy.bat = ..\deploy.bat
+		..\KerbalObjectInspector.version = ..\KerbalObjectInspector.version
+		..\README.md = ..\README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

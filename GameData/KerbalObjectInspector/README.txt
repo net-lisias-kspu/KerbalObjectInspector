@@ -1,6 +1,5 @@
-﻿
-Kerbal Object Inspector
-v0.1.0: Release
+﻿Kerbal Object Inspector
+v1.0: Release
 
 This software is provided "as-is" with no warranties.
 
@@ -8,11 +7,9 @@ Presented under the GPL v3 license.
 
 Creation and/or publication of media (images, videos, etc.) while using this software is authorized.
 
-The original author, Nifty255, had an ambiguous license reference, he listed two licenses which were 
-contradictory.   After consultation with Squad, I have decided to release this using the GPLv3, which
-is the original license listed.
+Created by: Nifty255
 
-In the event that Nifty255 contacts me and requests that I discontinue this mod, I will do so.
+Copyright 2016 All rights reserved.
 
 
 This mod is in RELEASE. However, bugs can still happen. If you have a bug, or a suggestion, please leave it in a mature manner.
@@ -31,5 +28,5 @@ Kerbal Object inspector is a plugin which allows mod developers to see exactly w
 
 CHANGELOG:
 
-v1.1.1:
-- INITIAL RE-RELEASE for KSP 1.2
+v1.0:
+- INITIAL RELEASE
