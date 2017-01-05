@@ -64,7 +64,7 @@ namespace KerbalObjectInspector
             {
                 Graphics.DrawMeshNow(mesh, transform.localToWorldMatrix);
             }
-            catch (Exception e) { }
+            catch (Exception) { }
             GL.wireframe = false;
         }
     }

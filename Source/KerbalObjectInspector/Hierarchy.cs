@@ -1,13 +1,14 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using KSP.UI.Screens;
+using System.Text.RegularExpressions;
 
 namespace KerbalObjectInspector
 {
     /// <summary>
     /// The Hierarchy addon. This addon is designed to inspect the scene and list all game objects via Transform searching.
     /// </summary>
-    [KSPAddon(KSPAddon.Startup.AllGameScenes, false)]
+    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     public class Hierarchy : MonoBehaviour
     {
         /// <summary>
@@ -66,17 +67,24 @@ namespace KerbalObjectInspector
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
 
-            if (btnLauncher == null)
-                btnLauncher = ApplicationLauncher.Instance.AddModApplication(
-                    () => _show = !_show, 
-                    () => _show = !_show, 
-                    null, null, null, null, 
-                    ApplicationLauncher.AppScenes.ALWAYS,
-                    GameDatabase.Instance.GetTexture("KerbalObjectInspector/KerbalObjectInspector", 
-                    false)
-                    );
+            GameEvents.onGUIApplicationLauncherReady.Add(AddButton);
+
             DontDestroyOnLoad(this);
         }
+
+        void AddButton()
+        {
+            if (btnLauncher == null)
+                btnLauncher = ApplicationLauncher.Instance.AddModApplication(
+                    () => _show = !_show,
+                    () => _show = !_show,
+                    null, null, null, null,
+                    ApplicationLauncher.AppScenes.ALWAYS,
+                    GameDatabase.Instance.GetTexture("KerbalObjectInspector/KerbalObjectInspector",
+                    false)
+                    );
+        }
+
         Part hoveredPart, lastHoveredPart = null;
         /// <summary>
         /// Called when this Monobehaviour is updated.
@@ -96,10 +104,36 @@ namespace KerbalObjectInspector
             }
             else
             { 
-
                 // Update the list of transforms.
                 allTrans = GameObject.FindObjectsOfType(typeof(Transform)) as Transform[];
-                if (!hierarachyLocked)
+                if (hierarchySorted)
+                    System.Array.Sort(allTrans, (a,b) => a.name.CompareTo(b.name));
+                if (hierarchyFilter != "") {
+                    // Include only matching objects, and all their parents.
+                    var tmpTrans = new HashSet<Transform>();
+                    var selectFirst = selectionChain.Count == 0;
+                    if (selectFirst) OnSelectionAboutToChange();
+                    foreach (var t in allTrans) {
+                        if (Filter(t)) {
+                            tmpTrans.Add(t);
+                            var ancestor = t.parent;
+                            if (selectFirst) selectionChain.Insert(0, t);
+                            while (ancestor != null) {
+                                if (selectFirst) selectionChain.Insert(0, ancestor);
+                                tmpTrans.Add(ancestor);
+                                ancestor = ancestor.parent;
+                            }
+                            if (selectFirst) {
+                                OnSelectionChanged();
+                                selectFirst = false;
+                            }
+                        }
+                    }
+
+                    allTrans = new Transform[tmpTrans.Count];
+                    tmpTrans.CopyTo(allTrans);
+                }
+                if (!hierarchyLocked)
                 {
                     hoveredPart = Mouse.HoveredPart;
                     if (hoveredPart != lastHoveredPart)
@@ -160,23 +194,57 @@ namespace KerbalObjectInspector
             }
         }
 
-        bool hierarachyLocked = false;
+        bool hierarchyLocked = false;
+        bool hierarchySorted = false;
+        string hierarchyFilter = "";
+        Regex hierarchyRegex;
+        List<System.Type> filterTypes;
+        bool FilterName(string name)
+        {
+            return hierarchyRegex.IsMatch(name);
+        }
+        bool Filter(Transform t)
+        {
+            if (FilterName(t.name)) return true;
+            foreach (var f in filterTypes)
+                if (t.GetComponent(f)) return true;
+            return false;
+        }
+
         /// <summary>
         /// Draws the Hierarchy window.
         /// </summary>
         /// <param name="windowID">The window ID.</param>
         void HierarchyWindow(int windowID)
         {
-            if (hierarachyLocked)
-            {
-                if (GUILayout.Button("Unlock Hierarchy display"))
-                    hierarachyLocked = false;
+            GUILayout.BeginHorizontal();
+            hierarchyLocked = GUILayout.Toggle(hierarchyLocked, new GUIContent("Lock", "Do not update the list"), GUILayout.ExpandWidth(false));
+            GUILayout.Space(10);
+            hierarchySorted = GUILayout.Toggle(hierarchySorted, new GUIContent("Sort","Sort by name"), GUILayout.ExpandWidth(false));
+            GUILayout.Space(10);
+            GUILayout.Label(new GUIContent("Search:","Filter by object or component name (Regex)"), GUILayout.ExpandWidth(false));
+            var newFilter = GUILayout.TextField(hierarchyFilter);
+
+            if (newFilter != hierarchyFilter) {
+                hierarchyFilter = newFilter;
+                OnSelectionAboutToChange();
+                selectionChain = new List<Transform>(); // clear selection - used for first match
+                OnSelectionChanged();
+                hierarchyRegex = new Regex(hierarchyFilter, RegexOptions.IgnoreCase);
+                filterTypes = new List<System.Type>();
+                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies()) {
+                    foreach (var type in asm.GetTypes()) {
+                        if ((hierarchyFilter.Length > 4 ? FilterName(type.Name) : type.Name == hierarchyFilter)
+                            && type != typeof(Component)
+                            && type != typeof(MonoBehaviour)
+                            && type.IsSubclassOf(typeof(Component)))
+                        {
+                            filterTypes.Add(type);
+                        }
+                    }
+                }
             }
-            else
-            {
-                if (GUILayout.Button("Lock Hierarchy display"))
-                    hierarachyLocked = true;
-            }
+            GUILayout.EndHorizontal();
 
             // Begin a scroll view.
             hierarchyScroll = GUILayout.BeginScrollView(hierarchyScroll, HighLogic.Skin.scrollView);
@@ -205,13 +273,12 @@ namespace KerbalObjectInspector
                 return;
 
             // Iterate through the list of transforms.
-            foreach (Transform trans in allTrans)
-                if (trans != null)
-            {
+            foreach (Transform trans in allTrans) { 
+                if (trans == null) continue;
+
                 // If the current transform's parent is the provided, or if the current transform's parent is null AND the provided parent object is null,
                 if ((parent == null && trans.parent == null) || (parent != null && trans.parent == parent))
                 {
-
                     // Begin a horizontal section.
                     GUILayout.BeginHorizontal();
 
