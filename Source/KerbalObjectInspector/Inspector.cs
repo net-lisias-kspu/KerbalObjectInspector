@@ -106,18 +106,20 @@ namespace KerbalObjectInspector
             for (int i = 0; i < pubFields.Length; i++)
             {
                 object val = pubFields[i].GetValue(component);
-
-                GUILayout.Label(pubFields[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
-
+               GUILayout.BeginHorizontal();
+               GUILayout.Label(pubFields[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
+                GUILayout.EndHorizontal();
                 if (i < pubFields.Length - 1)
                 {
-                    GUILayout.Label(" ");
+                    //GUILayout.Label(" ");
                 }
             }
 
             if (pubFields.Length == 0)
             {
+                GUILayout.BeginHorizontal();
                 GUILayout.Label("No public fields", HighLogic.Skin.label);
+                GUILayout.EndHorizontal();
             }
         }
     }

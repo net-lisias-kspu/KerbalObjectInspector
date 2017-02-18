@@ -4,3 +4,7 @@
 		Fixed display of wireframes
 		Added display of part mouse is over
 		Added locking of display (so that moving the mouse over something else won't change the display)
+1.1.2
+		Adds Sorting, Searching, and to MainMenu
+1.1.3
+		Reduced spacing in the Inspector
