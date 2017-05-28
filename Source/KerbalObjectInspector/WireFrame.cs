@@ -26,6 +26,7 @@ namespace KerbalObjectInspector
             MeshFilter filter = GetComponent<MeshFilter>();
             if (filter)
             {
+                Debug.Log("filter");
                 DoRender(filter.mesh);
                 return;
             }
@@ -33,6 +34,7 @@ namespace KerbalObjectInspector
             SkinnedMeshRenderer skinned = GetComponent<SkinnedMeshRenderer>();
             if (skinned)
             {
+                Debug.Log("skinned");
                 skinned.BakeMesh(toRender);
 
                 Vector3[] verts = toRender.vertices;

@@ -43,11 +43,8 @@ del a.version
 echo %VERSION%
 
 
-set d=%HOMEDIR\install
-if exist %d% goto one
-mkdir %d%
-:one
-set d=%HOMEDIR%\install\Gamedata
+
+set d=\Gamedata
 if exist %d% goto two
 mkdir %d%
 :two
@@ -58,12 +55,10 @@ copy Source\KerbalObjectInspector\bin\Release\KerbalObjectInspector.dll GameData
 copy  KerbalObjectInspector.version GameData\KerbalObjectInspector\KerbalObjectInspector.version
 copy /Y README.md GameData\KerbalObjectInspector
 
-xcopy /Y /E GameData\KerbalObjectInspector  %HOMEDIR%\install\Gamedata\KerbalObjectInspector\
-copy /y LICENSE %HOMEDIR%\install\Gamedata\KerbalObjectInspector
-copy /y ..\MiniAVC.dll %HOMEDIR%\install\GameData\KerbalObjectInspector
+xcopy /Y /E GameData\KerbalObjectInspector  Gamedata\KerbalObjectInspector\
+copy /y LICENSE Gamedata\KerbalObjectInspector
+copy /y ..\MiniAVC.dll GameData\KerbalObjectInspector
 pause
-%HOMEDRIVE%
-cd %HOMEDIR%\install
 
 set FILE="%RELEASEDIR%\KerbalObjectInspector-%VERSION%.zip"
 IF EXIST %FILE% del /F %FILE%
