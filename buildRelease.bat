@@ -58,7 +58,7 @@ copy /Y README.md GameData\KerbalObjectInspector
 xcopy /Y /E GameData\KerbalObjectInspector  Gamedata\KerbalObjectInspector\
 copy /y LICENSE Gamedata\KerbalObjectInspector
 copy /y ..\MiniAVC.dll GameData\KerbalObjectInspector
-pause
+
 
 set FILE="%RELEASEDIR%\KerbalObjectInspector-%VERSION%.zip"
 IF EXIST %FILE% del /F %FILE%
