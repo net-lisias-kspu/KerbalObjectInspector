@@ -3,6 +3,9 @@ using UnityEngine;
 using KSP.UI.Screens;
 using System.Text.RegularExpressions;
 
+using ToolbarControl_NS;
+//using ClickThroughFix;
+
 namespace KerbalObjectInspector
 {
     /// <summary>
@@ -52,7 +55,9 @@ namespace KerbalObjectInspector
         /// </summary>
         private Inspector inspector = null;
 
-        private static ApplicationLauncherButton btnLauncher = null;
+        //private static ApplicationLauncherButton btnLauncher = null;
+        ToolbarControl toolbarControl = null;
+
         private bool _show;
 
         /// <summary>
@@ -67,24 +72,32 @@ namespace KerbalObjectInspector
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
 
-            GameEvents.onGUIApplicationLauncherReady.Add(AddButton);
+            AddButton();
 
             DontDestroyOnLoad(this);
         }
 
+        internal const string MODID = "KerbalObjectInspector_NS";
+        internal const string MODNAME = "Kerbal Object Inspector";
+
         void AddButton()
         {
-            if (btnLauncher == null)
-                btnLauncher = ApplicationLauncher.Instance.AddModApplication(
-                    () => _show = !_show,
-                    () => _show = !_show,
-                    null, null, null, null,
-                    ApplicationLauncher.AppScenes.ALWAYS,
-                    GameDatabase.Instance.GetTexture("KerbalObjectInspector/KerbalObjectInspector",
-                    false)
-                    );
+            toolbarControl = gameObject.AddComponent<ToolbarControl>();
+            toolbarControl.AddToAllToolbars(ToggleShow, ToggleShow,
+                ApplicationLauncher.AppScenes.ALWAYS,
+               MODID,
+                "kerbalObjectInspectorButton",                 
+                "KerbalObjectInspector/PluginData/KerbalObjectInspector-38",
+                "KerbalObjectInspector/PluginData/KerbalObjectInspector-24",
+                MODNAME
+            );
+
         }
 
+        void ToggleShow()
+        {
+            _show = !_show;
+        }
         Part hoveredPart, lastHoveredPart = null;
         /// <summary>
         /// Called when this Monobehaviour is updated.
@@ -372,6 +385,8 @@ namespace KerbalObjectInspector
         void OnDestroy()
         {
             OnSelectionAboutToChange();
+            toolbarControl.OnDestroy();
+            Destroy(toolbarControl);
         }
     }
 }

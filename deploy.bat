@@ -1,8 +1,18 @@
 ﻿
-set H=R:\KSP_1.3.1_dev
-echo %H%
+@echo off
 
+rem H is the destination game folder
+rem GAMEDIR is the name of the mod folder (usually the mod name)
+rem GAMEDATA is the name of the local GameData
+rem VERSIONFILE is the name of the version file, usually the same as GAMEDATA,
+rem    but not always
 
-copy Source\KerbalObjectInspector\bin\Debug\KerbalObjectInspector.dll GameData\KerbalObjectInspector\Plugins
-mkdir %H%\GameData\KerbalObjectInspector
-xcopy GameData\KerbalObjectInspector %H%\GameData\KerbalObjectInspector\  /E /Y
+set H=R:\KSP_1.4.1_dev
+set GAMEDIR=KerbalObjectInspector
+set GAMEDATA="GameData\"
+set VERSIONFILE=%GAMEDIR%.version
+
+copy /Y "%1%2" "%GAMEDATA%\%GAMEDIR%\Plugins"
+copy /Y %VERSIONFILE% %GAMEDATA%\%GAMEDIR%
+
+xcopy /y /s /I %GAMEDATA%\%GAMEDIR% "%H%\GameData\%GAMEDIR%"

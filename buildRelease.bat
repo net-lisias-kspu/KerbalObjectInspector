@@ -1,28 +1,50 @@
-﻿@echo off
-set DEFHOMEDRIVE=d:
-set DEFHOMEDIR=%DEFHOMEDRIVE%%HOMEPATH%
-set HOMEDIR=
-set HOMEDRIVE=%CD:~0,2%
+﻿
+@echo off
+
+rem Put the following text into the Post-build event command line:
+rem without the "rem":
+
+rem start /D D:\Users\jbb\github\IFI-Life-Support /WAIT deploy.bat  $(TargetDir) $(TargetFileName)
+rem 
+rem if $(ConfigurationName) == Release (
+rem 
+rem start /D D:\Users\jbb\github\IFI-Life-Support /WAIT buildRelease.bat $(TargetDir) $(TargetFileName)
+rem 
+rem )
+
+
+rem Set variables here
+
+rem H is the destination game folder
+rem GAMEDIR is the name of the mod folder (usually the mod name)
+rem GAMEDATA is the name of the local GameData
+rem VERSIONFILE is the name of the version file, usually the same as GAMEDATA,
+rem    but not always
+rem LICENSE is the license file
+rem README is the readme file
+
+set GAMEDIR=KerbalObjectInspector
+set GAMEDATA="GameData\"
+set VERSIONFILE=%GAMEDIR%.version
+set LICENSE=LICENSE.txt
+set README=README.md
 
 set RELEASEDIR=d:\Users\jbb\release
 set ZIP="c:\Program Files\7-zip\7z.exe"
-echo Default homedir: %DEFHOMEDIR%
 
-rem set /p HOMEDIR= "Enter Home directory, or <CR> for default: "
+rem Copy files to GameData locations
 
-if "%HOMEDIR%" == "" (
-set HOMEDIR=%DEFHOMEDIR%
-)
-echo %HOMEDIR%
+copy /Y "%1%2" "%GAMEDATA%\%GAMEDIR%\Plugins"
+copy /Y %VERSIONFILE% %GAMEDATA%\%GAMEDIR%
+copy /Y ..\MiniAVC.dll %GAMEDATA%\%GAMEDIR%
 
-SET _test=%HOMEDIR:~1,1%
-if "%_test%" == ":" (
-set HOMEDRIVE=%HOMEDIR:~0,2%
-)
+if "%LICENSE%" NEQ "" copy /y  %LICENSE% %GAMEDATA%\%GAMEDIR%
+if "%README%" NEQ "" copy /Y %README% %GAMEDATA%\%GAMEDIR%
 
+rem Get Version info
 
-set VERSIONFILE=a.version
-copy KerbalObjectInspector.version a.version
+copy %VERSIONFILE% tmp.version
+set VERSIONFILE=tmp.version
 rem The following requires the JQ program, available here: https://stedolan.github.io/jq/download/
 c:\local\jq-win64  ".VERSION.MAJOR" %VERSIONFILE% >tmpfile
 set /P major=<tmpfile
@@ -36,30 +58,18 @@ set /P patch=<tmpfile
 c:\local\jq-win64  ".VERSION.BUILD"  %VERSIONFILE% >tmpfile
 set /P build=<tmpfile
 del tmpfile
+del tmp.version
 set VERSION=%major%.%minor%.%patch%
 if "%build%" NEQ "0"  set VERSION=%VERSION%.%build%
-del a.version
 
-echo %VERSION%
-
+echo Version:  %VERSION%
 
 
-set d=\Gamedata
-if exist %d% goto two
-mkdir %d%
-:two
+rem Build the zip FILE
+cd %GAMEDATA%\..
 
-rmdir /s /q %HOMEDIR%\install\Gamedata\KerbalObjectInspector
-
-copy Source\KerbalObjectInspector\bin\Release\KerbalObjectInspector.dll GameData\KerbalObjectInspector\Plugins
-copy  KerbalObjectInspector.version GameData\KerbalObjectInspector\KerbalObjectInspector.version
-copy /Y README.md GameData\KerbalObjectInspector
-
-xcopy /Y /E GameData\KerbalObjectInspector  Gamedata\KerbalObjectInspector\
-copy /y LICENSE Gamedata\KerbalObjectInspector
-copy /y ..\MiniAVC.dll GameData\KerbalObjectInspector
-
-
-set FILE="%RELEASEDIR%\KerbalObjectInspector-%VERSION%.zip"
+set FILE="%RELEASEDIR%\%GAMEDIR%-%VERSION%.zip"
 IF EXIST %FILE% del /F %FILE%
-%ZIP% a -tzip %FILE% GameData\KerbalObjectInspector 
+%ZIP% a -tzip %FILE% GameData
+
+pause

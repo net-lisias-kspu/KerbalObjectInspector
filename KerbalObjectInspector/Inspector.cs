@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
 using UnityEngine;
 
+using ClickThroughFix;
+
 namespace KerbalObjectInspector
 {
     class Inspector
@@ -23,7 +25,7 @@ namespace KerbalObjectInspector
             if (transform != null)
             {
                 currentTransform = transform;
-                inspectorRect = GUILayout.Window(inspectorID, inspectorRect, InspectorWindow, "Inspector: " + transform.gameObject.name, HighLogic.Skin.window);
+                inspectorRect = ClickThruBlocker.GUILayoutWindow(inspectorID, inspectorRect, InspectorWindow, "Inspector: " + transform.gameObject.name, HighLogic.Skin.window);
             }
         }
 
