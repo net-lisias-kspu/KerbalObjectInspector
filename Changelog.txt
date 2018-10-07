@@ -20,3 +20,8 @@
 	added support for the Clickthrough Blocker
 	Added support for the toolbar Controller
 	Updated button texture with transparancy
+
+1.1.7
+	Thanks to @gotmachine for these additions:
+		Added properties to the component inspector
+		Component inspector field and properties also show base class properties (BindingFlags.FlattenHierarchy)
