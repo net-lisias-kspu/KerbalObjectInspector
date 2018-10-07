@@ -2,6 +2,7 @@
 using UnityEngine;
 
 using ClickThroughFix;
+using System;
 
 namespace KerbalObjectInspector
 {
@@ -103,24 +104,32 @@ namespace KerbalObjectInspector
 
         private void DrawComponentFields(Component component)
         {
-            FieldInfo[] pubFields = component.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance);
-
+            FieldInfo[] pubFields = component.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
             for (int i = 0; i < pubFields.Length; i++)
             {
-                object val = pubFields[i].GetValue(component);
+                object val = null;
+                try { val = pubFields[i].GetValue(component); }
+                catch (Exception) { continue; }
                GUILayout.BeginHorizontal();
-               GUILayout.Label(pubFields[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
-                GUILayout.EndHorizontal();
-                if (i < pubFields.Length - 1)
-                {
-                    //GUILayout.Label(" ");
-                }
+               GUILayout.Label("[Field] " + pubFields[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
+               GUILayout.EndHorizontal();
             }
 
-            if (pubFields.Length == 0)
+            PropertyInfo[] pubProperties = component.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            for (int i = 0; i < pubProperties.Length; i++)
+            {
+                object val = null;
+                try { val = pubProperties[i].GetValue(component, null); }
+                catch (Exception) { continue; }
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("[Property] " + pubProperties[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
+                GUILayout.EndHorizontal();
+            }
+
+            if (pubFields.Length == 0 && pubProperties.Length == 0)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("No public fields", HighLogic.Skin.label);
+                GUILayout.Label("No public fields or properties", HighLogic.Skin.label);
                 GUILayout.EndHorizontal();
             }
         }
