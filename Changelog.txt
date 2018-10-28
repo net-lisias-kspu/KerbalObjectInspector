@@ -25,3 +25,6 @@
 	Thanks to @gotmachine for these additions:
 		Added properties to the component inspector
 		Component inspector field and properties also show base class properties (BindingFlags.FlattenHierarchy)
+
+1.1.7.1
+	Version bump for 1.5 rebuild
