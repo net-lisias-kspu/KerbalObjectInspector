@@ -28,3 +28,7 @@
 
 1.1.7.1
 	Version bump for 1.5 rebuild
+
+1.1.7.3
+	Added InstallChecker
+	Updated AssemblyVersion.tt
