@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.IO;
+using System.Collections.Generic;
 using UnityEngine;
 using KSP.UI.Screens;
 using System.Text.RegularExpressions;
@@ -86,7 +87,7 @@ namespace KerbalObjectInspector
             toolbarControl.AddToAllToolbars(ToggleShow, ToggleShow,
                 ApplicationLauncher.AppScenes.ALWAYS,
                MODID,
-                "kerbalObjectInspectorButton",                 
+                "kerbalObjectInspectorButton",
                 "KerbalObjectInspector/PluginData/KerbalObjectInspector-38",
                 "KerbalObjectInspector/PluginData/KerbalObjectInspector-24",
                 MODNAME
@@ -116,27 +117,32 @@ namespace KerbalObjectInspector
                 currentTime -= UpdateTime;
             }
             else
-            { 
+            {
                 // Update the list of transforms.
                 allTrans = GameObject.FindObjectsOfType(typeof(Transform)) as Transform[];
                 if (hierarchySorted)
-                    System.Array.Sort(allTrans, (a,b) => a.name.CompareTo(b.name));
-                if (hierarchyFilter != "") {
+                    System.Array.Sort(allTrans, (a, b) => a.name.CompareTo(b.name));
+                if (hierarchyFilter != "")
+                {
                     // Include only matching objects, and all their parents.
                     var tmpTrans = new HashSet<Transform>();
                     var selectFirst = selectionChain.Count == 0;
                     if (selectFirst) OnSelectionAboutToChange();
-                    foreach (var t in allTrans) {
-                        if (Filter(t)) {
+                    foreach (var t in allTrans)
+                    {
+                        if (Filter(t))
+                        {
                             tmpTrans.Add(t);
                             var ancestor = t.parent;
                             if (selectFirst) selectionChain.Insert(0, t);
-                            while (ancestor != null) {
+                            while (ancestor != null)
+                            {
                                 if (selectFirst) selectionChain.Insert(0, ancestor);
                                 tmpTrans.Add(ancestor);
                                 ancestor = ancestor.parent;
                             }
-                            if (selectFirst) {
+                            if (selectFirst)
+                            {
                                 OnSelectionChanged();
                                 selectFirst = false;
                             }
@@ -178,7 +184,7 @@ namespace KerbalObjectInspector
                     }
                 }
             }
-            
+
         }
 
         /// <summary>
@@ -190,7 +196,7 @@ namespace KerbalObjectInspector
                 return;
 
             // Draw the Hierarchy window.
-            hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy", HighLogic.Skin.window);
+            hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy (right-click to write to file)", HighLogic.Skin.window);
 
             // If there is something in the selection chain,
             if (selectionChain.Count > 0)
@@ -233,20 +239,23 @@ namespace KerbalObjectInspector
             GUILayout.BeginHorizontal();
             hierarchyLocked = GUILayout.Toggle(hierarchyLocked, new GUIContent("Lock", "Do not update the list"), GUILayout.ExpandWidth(false));
             GUILayout.Space(10);
-            hierarchySorted = GUILayout.Toggle(hierarchySorted, new GUIContent("Sort","Sort by name"), GUILayout.ExpandWidth(false));
+            hierarchySorted = GUILayout.Toggle(hierarchySorted, new GUIContent("Sort", "Sort by name"), GUILayout.ExpandWidth(false));
             GUILayout.Space(10);
-            GUILayout.Label(new GUIContent("Search:","Filter by object or component name (Regex)"), GUILayout.ExpandWidth(false));
+            GUILayout.Label(new GUIContent("Search:", "Filter by object or component name (Regex)"), GUILayout.ExpandWidth(false));
             var newFilter = GUILayout.TextField(hierarchyFilter);
 
-            if (newFilter != hierarchyFilter) {
+            if (newFilter != hierarchyFilter)
+            {
                 hierarchyFilter = newFilter;
                 OnSelectionAboutToChange();
                 selectionChain = new List<Transform>(); // clear selection - used for first match
                 OnSelectionChanged();
                 hierarchyRegex = new Regex(hierarchyFilter, RegexOptions.IgnoreCase);
                 filterTypes = new List<System.Type>();
-                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies()) {
-                    foreach (var type in asm.GetTypes()) {
+                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    foreach (var type in asm.GetTypes())
+                    {
                         if ((hierarchyFilter.Length > 4 ? FilterName(type.Name) : type.Name == hierarchyFilter)
                             && type != typeof(Component)
                             && type != typeof(MonoBehaviour)
@@ -277,16 +286,17 @@ namespace KerbalObjectInspector
         /// </summary>
         /// <param name="depth">The depth of the listing iteration.</param>
         /// <param name="parent">The parent to check for children. If null, draws for all root objects.</param>
-        void ListChildren(int depth, Transform parent)
+        void ListChildren(int depth, Transform parent, bool printToFile = false)
         {
-            if (allTrans == null)                           
+            if (allTrans == null)
                 return;
-            
+
             if (selectionChain == null)
                 return;
 
             // Iterate through the list of transforms.
-            foreach (Transform trans in allTrans) { 
+            foreach (Transform trans in allTrans)
+            {
                 if (trans == null) continue;
 
                 // If the current transform's parent is the provided, or if the current transform's parent is null AND the provided parent object is null,
@@ -311,10 +321,17 @@ namespace KerbalObjectInspector
                             isSelected = true;
                         }
                     }
-
+                    if (printToFile)
+                    {
+                        File.AppendAllText("ObjectInfo.txt", trans.gameObject.name + ",");                         
+                    }
+                    bool rightButton = false;
                     // Draw a button. If the button is clicked,
                     if (GUILayout.Button((isSelected ? "" : "<color=#ffffffff>") + trans.gameObject.name + (isSelected ? "" : "</color>"), HighLogic.Skin.label))
                     {
+                        rightButton = (Event.current.button == 1);
+                        if (rightButton)
+                            File.AppendAllText("ObjectInfo.txt", "\n" +trans.gameObject.name + ",");
                         // Signal a future selection chain change.
                         OnSelectionAboutToChange();
 
@@ -332,6 +349,7 @@ namespace KerbalObjectInspector
                         OnSelectionChanged();
                     }
 
+
                     // End the horizontal section.
                     GUILayout.EndHorizontal();
 
@@ -339,7 +357,7 @@ namespace KerbalObjectInspector
                     if (isSelected)
                     {
                         // Recursively search it for children and draw their controls.
-                        ListChildren(depth + 1, trans);
+                        ListChildren(depth + 1, trans, rightButton);
                     }
                 }
             }
@@ -351,7 +369,7 @@ namespace KerbalObjectInspector
         void OnSelectionAboutToChange()
         {
             // For each transform in the chain,
-            foreach(Transform trans in selectionChain)
+            foreach (Transform trans in selectionChain)
             {
                 // Try to remove any WireFrame components found.
                 try
@@ -364,7 +382,7 @@ namespace KerbalObjectInspector
 
         void OnSelectionChanged()
         {
-            for (int i = 0; i < selectionChain.Count; i++ )
+            for (int i = 0; i < selectionChain.Count; i++)
             {
                 // If the transform has some form of mesh renderer,
                 if (selectionChain[i].GetComponent<MeshFilter>() || selectionChain[i].GetComponent<SkinnedMeshRenderer>())

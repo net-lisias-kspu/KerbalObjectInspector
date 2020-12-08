@@ -8,7 +8,7 @@ namespace KerbalObjectInspector
     {
         private static Material _material;
 
-        public static Material lineMaterial => _material ?? (_material = new Material(Shader.Find("Particles/Alpha Blended")));
+        public static Material lineMaterial => _material ?? (_material = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended")));
         public Color lineColor = new Color(0.0f, 1.0f, 0.0f);
 
         private Mesh toRender;

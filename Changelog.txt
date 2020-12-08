@@ -20,3 +20,23 @@
 	added support for the Clickthrough Blocker
 	Added support for the toolbar Controller
 	Updated button texture with transparancy
+
+1.1.7
+	Thanks to @gotmachine for these additions:
+		Added properties to the component inspector
+		Component inspector field and properties also show base class properties (BindingFlags.FlattenHierarchy)
+
+1.1.7.1
+	Version bump for 1.5 rebuild
+
+1.1.7.3
+	Added InstallChecker
+	Updated AssemblyVersion.tt
+
+1.1.8
+	Added Right click on object line will write tree data (descending from that point) to a file:  ObjectInfo.txt
+	Updated for KSP 1.8
+
+1.1.8.1
+	Updated shader name with "Legacy Shaders/"
+	Added checks for obsolete attributes in  Inspector.cs
