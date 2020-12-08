@@ -13,9 +13,11 @@ namespace KerbalObjectInspector
         private int inspectorID;
 
         private Transform currentTransform;
+        private Hierarchy hierarchy;
 
-        public Inspector(int id, Rect hierarchyRect)
+        public Inspector(Hierarchy hierarchy, int id, Rect hierarchyRect)
         {
+            this.hierarchy = hierarchy;
             inspectorID = id;
             inspectorRect = new Rect(hierarchyRect.x + hierarchyRect.width, hierarchyRect.y, 500f, 800f);
             inspectorScroll = Vector2.zero;
@@ -113,7 +115,17 @@ namespace KerbalObjectInspector
                     try { val = pubFields[i].GetValue(component); }
                     catch (Exception) { continue; }
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("[Field] " + pubFields[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
+
+                    GUILayout.Label("[Field] " + pubFields[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label, GUILayout.ExpandWidth(true));
+
+                    if (Serialization.CanParse(pubFields[i].FieldType))
+                    {
+                        if (GUILayout.Button("Edit", GUILayout.Width(35f)))
+                        {
+                            hierarchy.editor = new ValueEditor(hierarchy, hierarchy.GetInstanceID() + 2, component, pubFields[i], null);
+                        }
+                    }
+
                     GUILayout.EndHorizontal();
                 }
             }
@@ -127,7 +139,16 @@ namespace KerbalObjectInspector
                     try { val = pubProperties[i].GetValue(component, null); }
                     catch (Exception) { continue; }
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("[Property] " + pubProperties[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label);
+                    GUILayout.Label("[Prop] " + pubProperties[i].Name + ": " + (val != null ? val.ToString() : "null"), HighLogic.Skin.label, GUILayout.ExpandWidth(true));
+
+                    if (pubProperties[i].CanWrite && Serialization.CanParse(pubProperties[i].PropertyType))
+                    {
+                        if (GUILayout.Button("Edit", GUILayout.Width(35f)))
+                        {
+                            hierarchy.editor = new ValueEditor(hierarchy, hierarchy.GetInstanceID() + 2, component, null, pubProperties[i]);
+                        }
+                    }
+
                     GUILayout.EndHorizontal();
                 }
             }

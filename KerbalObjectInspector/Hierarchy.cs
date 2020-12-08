@@ -56,6 +56,8 @@ namespace KerbalObjectInspector
         /// </summary>
         private Inspector inspector = null;
 
+        public ValueEditor editor = null;
+
         //private static ApplicationLauncherButton btnLauncher = null;
         ToolbarControl toolbarControl = null;
 
@@ -205,11 +207,23 @@ namespace KerbalObjectInspector
                 if (inspector == null)
                 {
                     // Create a new inspector.
-                    inspector = new Inspector(GetInstanceID() + 1, hierarchyRect);
+                    inspector = new Inspector(this, GetInstanceID() + 1, hierarchyRect);
                 }
 
                 // Draw the inspector GUI.
                 inspector.DrawGUI(selectionChain[selectionChain.Count - 1]);
+
+                if (editor != null)
+                {
+                    editor.DrawGUI();
+                }
+            }
+            else
+            {
+                if (editor != null)
+                {
+                    editor = null;
+                }
             }
         }
 
