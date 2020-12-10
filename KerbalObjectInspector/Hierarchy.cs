@@ -294,7 +294,7 @@ namespace KerbalObjectInspector
 
             GUILayout.BeginHorizontal();
 
-            GUILayout.Label("Alt + mouse hover selection mode : ", GUILayout.ExpandWidth(false));
+            GUILayout.Label("Alt + hover selection mode : ", GUILayout.ExpandWidth(false));
             if (GUILayout.Toggle(hoverMode == HoverMode.PART, "Part", GUILayout.ExpandWidth(false)))
                 hoverMode = HoverMode.PART;
             if (GUILayout.Toggle(hoverMode == HoverMode.UI, "UI", GUILayout.ExpandWidth(false)))
