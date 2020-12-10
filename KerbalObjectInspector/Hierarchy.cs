@@ -625,7 +625,7 @@ namespace KerbalObjectInspector
 
         private void AddWireFrameToSelection()
         {
-            if (!drawWireFrame)
+            if (!drawWireFrame || selectedTransform == null)
                 return;
 
             // If the transform has some form of mesh renderer,
