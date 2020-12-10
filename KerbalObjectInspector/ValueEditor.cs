@@ -11,8 +11,8 @@ namespace KerbalObjectInspector
     {
         private enum ValueType { Unknown, Field, Property };
 
-        private Rect editorRect;
         private int editorID;
+        public Rect rect;
 
         private Hierarchy hierarchy;
 
@@ -35,10 +35,9 @@ namespace KerbalObjectInspector
             currentProperty = property;
             currentField = field;
             editorID = hierarchy.GetInstanceID() + 2;
-            editorRect = new Rect(Screen.width * 0.5f, Screen.height * 0.5f, 300f, 150f);
+            rect = new Rect(Screen.width * 0.5f, Screen.height * 0.5f, 300f, 150f);
             scrollPos = Vector2.zero;
 
-            string valString = string.Empty;
             if (field != null)
             {
                 valueType = ValueType.Field;
@@ -87,7 +86,7 @@ namespace KerbalObjectInspector
 
         public void DrawGUI()
         {
-            editorRect = ClickThruBlocker.GUILayoutWindow(editorID, editorRect, ValueEditorWindow, "Value editor", HighLogic.Skin.window);
+            rect = ClickThruBlocker.GUILayoutWindow(editorID, rect, ValueEditorWindow, "Value editor", HighLogic.Skin.window);
         }
 
         private void ValueEditorWindow(int windowID)

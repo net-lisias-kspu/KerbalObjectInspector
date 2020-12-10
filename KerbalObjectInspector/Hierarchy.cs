@@ -47,7 +47,8 @@ namespace KerbalObjectInspector
         /// <summary>
         /// The bounds of the Hierarchy window.
         /// </summary>
-        private Rect hierarchyRect;
+        public Rect hierarchyRect;
+
         /// <summary>
         /// The current scroll position of the window's scroll view.
         /// </summary>
@@ -78,6 +79,8 @@ namespace KerbalObjectInspector
         private bool searchRootOnly = false;
         private bool allAssetsMode = false;
 
+        private float wheelOriginalScale;
+
         private static Material glMaterial;
 
         #region LIFECYCLE
@@ -99,6 +102,7 @@ namespace KerbalObjectInspector
             DontDestroyOnLoad(this);
 
             glMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
+            wheelOriginalScale = GameSettings.AXIS_MOUSEWHEEL.primary.scale;
 
             GameEvents.onGameSceneSwitchRequested.Add(OnSceneSwitch);
         }
@@ -125,6 +129,7 @@ namespace KerbalObjectInspector
 
         private void OnSceneSwitch(GameEvents.FromToAction<GameScenes, GameScenes> data)
         {
+            DisableMouseWheel(true);
             rootTransforms.Clear();
             ClearSelection();
         }
@@ -187,6 +192,7 @@ namespace KerbalObjectInspector
             }
 
             showUI = !showUI;
+            DisableMouseWheel();
         }
 
         /// <summary>
@@ -246,7 +252,14 @@ namespace KerbalObjectInspector
                 {
                     editor = null;
                 }
+
+                if (inspector != null)
+                {
+                    inspector.isVisible = false;
+                }
             }
+
+            DisableMouseWheel();
         }
 
         #endregion
@@ -414,6 +427,26 @@ namespace KerbalObjectInspector
                 }
             }
             GUILayout.EndHorizontal();
+        }
+
+        private void DisableMouseWheel(bool forceEnabled = false)
+        {
+            // disable camera mouse scrolling on mouse over
+            if (!forceEnabled && showUI)
+            {
+                Vector2 mousePos = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+                bool mouseOver = hierarchyRect.Contains(mousePos);
+                mouseOver |= inspector != null && inspector.isVisible && inspector.rect.Contains(mousePos);
+                mouseOver |= editor != null && editor.rect.Contains(mousePos);
+
+                if (mouseOver)
+                {
+                    GameSettings.AXIS_MOUSEWHEEL.primary.scale = 0.0f;
+                    return;
+                }
+            }
+
+            GameSettings.AXIS_MOUSEWHEEL.primary.scale = wheelOriginalScale;
         }
 
         #endregion

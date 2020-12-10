@@ -14,9 +14,11 @@ namespace KerbalObjectInspector
         private static GUIStyle leftAlignButton;
         private static GUIStyle labelNoWrap;
 
-        private Rect inspectorRect;
         private Vector2 inspectorScroll;
         private int inspectorID;
+
+        public Rect rect;
+        public bool isVisible;
 
         private Transform currentTransform;
         private Component currentComponent;
@@ -38,7 +40,7 @@ namespace KerbalObjectInspector
 
             this.hierarchy = hierarchy;
             inspectorID = id;
-            inspectorRect = new Rect(hierarchyRect.x + hierarchyRect.width, hierarchyRect.y, 450f, 800f);
+            rect = new Rect(hierarchyRect.x + hierarchyRect.width, hierarchyRect.y, 450f, 800f);
             inspectorScroll = Vector2.zero;
         }
 
@@ -46,11 +48,13 @@ namespace KerbalObjectInspector
         {
             if (transform != null)
             {
+                isVisible = true;
                 currentTransform = transform;
-                inspectorRect = ClickThruBlocker.GUILayoutWindow(inspectorID, inspectorRect, InspectorWindow, "GameObject: " + transform.gameObject.name, HighLogic.Skin.window);
+                rect = ClickThruBlocker.GUILayoutWindow(inspectorID, rect, InspectorWindow, "GameObject: " + transform.gameObject.name, HighLogic.Skin.window);
             }
             else
             {
+                isVisible = false;
                 currentComponent = null;
             }
         }
