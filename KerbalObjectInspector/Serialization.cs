@@ -55,7 +55,8 @@ namespace KerbalObjectInspector
 			{
 				return parser.SerializeFromObject(value);
 			}
-			return null;
+
+			return value.ToString();
 		}
 
 		private static Dictionary<Type, ValueParser> parsers = new Dictionary<Type, ValueParser>()

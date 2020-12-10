@@ -3,8 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using KSP.UI.Screens;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 using ToolbarControl_NS;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using System;
 //using ClickThroughFix;
 
 namespace KerbalObjectInspector
@@ -15,32 +19,29 @@ namespace KerbalObjectInspector
     [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     public class Hierarchy : MonoBehaviour
     {
+        internal const string MODID = "KerbalObjectInspector_NS";
+        internal const string MODNAME = "Kerbal Object Inspector";
+
         /// <summary>
         /// The number of times per second this addon will attempt to update.
         /// </summary>
-        private int updatesPerSecond = 10;
-
-        /// <summary>
-        /// The time as a float in seconds this addon will wait until the next update.
-        /// </summary>
-        private float UpdateTime
-        {
-            get { return 1f / (float)updatesPerSecond; }
-        }
+        private const int maxSkippedUpdates = 10;
 
         /// <summary>
         /// The current time since last update.
         /// </summary>
-        private float currentTime = 0f;
+        private float skippedUpdates = 0;
 
-        /// <summary>
-        /// An array of all transforms in the scene.
-        /// </summary>
-        private Transform[] allTrans;
-        /// <summary>
-        /// The chain of selected transforms leading to the current selected transform.
-        /// </summary>
-        private List<Transform> selectionChain;
+        /// <summary> all root transforms in the scene + all dontDestroyOnLoad scene root transforms </summary>
+        private List<Transform> rootTransforms = new List<Transform>();
+
+        /// <summary>The chain of selected transforms leading to the current selected transform.  </summary>
+        private List<Transform> selectionChain = new List<Transform>();
+
+        private List<int> selectionChainDepth = new List<int>();
+
+        /// <summary> The currently selected transform </summary>
+        private Transform selectedTransform;
 
         /// <summary>
         /// The bounds of the Hierarchy window.
@@ -58,10 +59,24 @@ namespace KerbalObjectInspector
 
         public ValueEditor editor = null;
 
-        //private static ApplicationLauncherButton btnLauncher = null;
         ToolbarControl toolbarControl = null;
 
-        private bool _show;
+        private bool showUI;
+
+        private enum HoverMode { PART, UI, OBJECT };
+
+        private HoverMode hoverMode = HoverMode.PART;
+
+        private Transform hovered;
+        private Transform lastHovered;
+
+        private bool showInactive = false;
+        private bool hierarchyLocked = false;
+        private string searchFilter = "";
+        private bool searchRootOnly = false;
+        private bool allAssetsMode = false;
+
+        #region LIFECYCLE
 
         /// <summary>
         /// Called when this MonoBehaviour starts.
@@ -71,23 +86,28 @@ namespace KerbalObjectInspector
             // Instantiate the selection chain.
             selectionChain = new List<Transform>();
             // Create the initial window bounds.
-            hierarchyRect = new Rect(50f, 50f, 500f, 800f);
+            hierarchyRect = new Rect(50f, 50f, 450f, 800f);
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
 
             AddButton();
 
             DontDestroyOnLoad(this);
-        }
 
-        internal const string MODID = "KerbalObjectInspector_NS";
-        internal const string MODNAME = "Kerbal Object Inspector";
+            GameEvents.onGameSceneSwitchRequested.Add(OnSceneSwitch);
+        }
 
         void AddButton()
         {
             toolbarControl = gameObject.AddComponent<ToolbarControl>();
             toolbarControl.AddToAllToolbars(ToggleShow, ToggleShow,
-                ApplicationLauncher.AppScenes.ALWAYS,
+                ApplicationLauncher.AppScenes.FLIGHT
+                | ApplicationLauncher.AppScenes.MAINMENU
+                | ApplicationLauncher.AppScenes.MAPVIEW
+                | ApplicationLauncher.AppScenes.SPACECENTER
+                | ApplicationLauncher.AppScenes.SPH
+                | ApplicationLauncher.AppScenes.TRACKSTATION
+                | ApplicationLauncher.AppScenes.VAB,
                MODID,
                 "kerbalObjectInspectorButton",
                 "KerbalObjectInspector/PluginData/KerbalObjectInspector-38",
@@ -97,96 +117,70 @@ namespace KerbalObjectInspector
 
         }
 
-        void ToggleShow()
+        private void OnSceneSwitch(GameEvents.FromToAction<GameScenes, GameScenes> data)
         {
-            _show = !_show;
+            rootTransforms.Clear();
+            ClearSelection();
         }
-        Part hoveredPart, lastHoveredPart = null;
+
+        void OnDestroy()
+        {
+            OnSelectionAboutToChange();
+            toolbarControl.OnDestroy();
+            GameEvents.onGameSceneSwitchRequested.Remove(OnSceneSwitch);
+            Destroy(toolbarControl);
+        }
+
+        #endregion
+
+        #region CORE UPDATE
+
         /// <summary>
         /// Called when this Monobehaviour is updated.
         /// </summary>
         void Update()
         {
-            if (!_show)
+            if (!showUI)
                 return;
-            // Increment the current time since updating.
-            currentTime += Time.deltaTime;
 
-            // If the current time since updating passes the update threshold,
-            if (currentTime >= UpdateTime)
+            if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
             {
-                // Subtract time until it is less than the threshold.
-                currentTime -= UpdateTime;
+                SelectHoveredTransform();
             }
-            else
-            {
-                // Update the list of transforms.
-                allTrans = GameObject.FindObjectsOfType(typeof(Transform)) as Transform[];
-                if (hierarchySorted)
-                    System.Array.Sort(allTrans, (a, b) => a.name.CompareTo(b.name));
-                if (hierarchyFilter != "")
-                {
-                    // Include only matching objects, and all their parents.
-                    var tmpTrans = new HashSet<Transform>();
-                    var selectFirst = selectionChain.Count == 0;
-                    if (selectFirst) OnSelectionAboutToChange();
-                    foreach (var t in allTrans)
-                    {
-                        if (Filter(t))
-                        {
-                            tmpTrans.Add(t);
-                            var ancestor = t.parent;
-                            if (selectFirst) selectionChain.Insert(0, t);
-                            while (ancestor != null)
-                            {
-                                if (selectFirst) selectionChain.Insert(0, ancestor);
-                                tmpTrans.Add(ancestor);
-                                ancestor = ancestor.parent;
-                            }
-                            if (selectFirst)
-                            {
-                                OnSelectionChanged();
-                                selectFirst = false;
-                            }
-                        }
-                    }
 
-                    allTrans = new Transform[tmpTrans.Count];
-                    tmpTrans.CopyTo(allTrans);
-                }
+            if (skippedUpdates < maxSkippedUpdates)
+            {
+                skippedUpdates++;
+                return;
+            }
+
+            skippedUpdates = 0;
+
+            if (searchFilter.Length == 0)
+            {
                 if (!hierarchyLocked)
                 {
-                    hoveredPart = Mouse.HoveredPart;
-                    if (hoveredPart != lastHoveredPart)
+                    if (allAssetsMode)
                     {
-                        lastHoveredPart = hoveredPart;
-                        if (hoveredPart != null)
-                        {
-                            foreach (Transform trans in allTrans)
-                                if (trans == hoveredPart.transform)
-                                {
-                                    Debug.Log("Hovered part: " + hoveredPart.partInfo.title);
-
-                                    // Signal a future selection chain change.
-                                    OnSelectionAboutToChange();
-
-                                    // If the button is closer to the root than the chain is deep,
-
-                                    // Cut the chain back down to the correct length.
-                                    selectionChain = selectionChain.GetRange(0, 0);
-
-
-                                    // Add the newly selected transform to the possible truncated selection chain.
-                                    selectionChain.Add(trans);
-
-                                    // Signal a change in the selection chain.
-                                    OnSelectionChanged();
-                                }
-                        }
+                        SearchAllTransforms(true, true);
+                    }
+                    else
+                    {
+                        FindSceneRootTransforms();
                     }
                 }
             }
+        }
 
+        void ToggleShow()
+        {
+            if (showUI)
+            {
+                ClearSelection();
+                rootTransforms.Clear();
+            }
+
+            showUI = !showUI;
         }
 
         /// <summary>
@@ -194,14 +188,32 @@ namespace KerbalObjectInspector
         /// </summary>
         void OnGUI()
         {
-            if (!_show)
+            if (!showUI)
                 return;
 
+            // make sure the objects are still valid
+            for (int i = 0; i < selectionChain.Count; i++)
+            {
+                if (selectionChain[i] == null || selectionChain[i].gameObject == null)
+                {
+                    ClearSelection();
+                    break;
+                }
+            }
+
+            for (int i = rootTransforms.Count - 1; i >= 0; i--)
+            {
+                if (rootTransforms[i] == null || rootTransforms[i].gameObject == null)
+                {
+                    rootTransforms.RemoveAt(i);
+                }
+            }
+
             // Draw the Hierarchy window.
-            hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy (right-click to write to file)", HighLogic.Skin.window);
+            hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy", HighLogic.Skin.window);
 
             // If there is something in the selection chain,
-            if (selectionChain.Count > 0)
+            if (!ReferenceEquals(selectedTransform, null))
             {
                 // If the inspector is null,
                 if (inspector == null)
@@ -211,7 +223,7 @@ namespace KerbalObjectInspector
                 }
 
                 // Draw the inspector GUI.
-                inspector.DrawGUI(selectionChain[selectionChain.Count - 1]);
+                inspector.DrawGUI(selectedTransform);
 
                 if (editor != null)
                 {
@@ -227,22 +239,9 @@ namespace KerbalObjectInspector
             }
         }
 
-        bool hierarchyLocked = false;
-        bool hierarchySorted = false;
-        string hierarchyFilter = "";
-        Regex hierarchyRegex;
-        List<System.Type> filterTypes;
-        bool FilterName(string name)
-        {
-            return hierarchyRegex.IsMatch(name);
-        }
-        bool Filter(Transform t)
-        {
-            if (FilterName(t.name)) return true;
-            foreach (var f in filterTypes)
-                if (t.GetComponent(f)) return true;
-            return false;
-        }
+        #endregion
+
+        #region DRAW UI
 
         /// <summary>
         /// Draws the Hierarchy window.
@@ -251,42 +250,64 @@ namespace KerbalObjectInspector
         void HierarchyWindow(int windowID)
         {
             GUILayout.BeginHorizontal();
-            hierarchyLocked = GUILayout.Toggle(hierarchyLocked, new GUIContent("Lock", "Do not update the list"), GUILayout.ExpandWidth(false));
-            GUILayout.Space(10);
-            hierarchySorted = GUILayout.Toggle(hierarchySorted, new GUIContent("Sort", "Sort by name"), GUILayout.ExpandWidth(false));
-            GUILayout.Space(10);
-            GUILayout.Label(new GUIContent("Search:", "Filter by object or component name (Regex)"), GUILayout.ExpandWidth(false));
-            var newFilter = GUILayout.TextField(hierarchyFilter);
 
-            if (newFilter != hierarchyFilter)
+            GUILayout.Label("Root objects : ", GUILayout.ExpandWidth(false));
+            if (GUILayout.Toggle(!allAssetsMode, "Current scene", GUILayout.ExpandWidth(false)))
+                allAssetsMode = false;
+            if (GUILayout.Toggle(allAssetsMode, "All assets (slow !)", GUILayout.ExpandWidth(false)))
+                allAssetsMode = true;
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+
+            showInactive = GUILayout.Toggle(showInactive, "Show <color=orange>inactive</color> objects", GUILayout.ExpandWidth(false));
+
+            GUILayout.Space(20f);
+
+            hierarchyLocked = !GUILayout.Toggle(!hierarchyLocked, "Watch hierarchy changes", GUILayout.ExpandWidth(false));
+
+            GUILayout.EndHorizontal();
+
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Label("Alt + mouse hover selection mode : ", GUILayout.ExpandWidth(false));
+            if (GUILayout.Toggle(hoverMode == HoverMode.PART, "Part", GUILayout.ExpandWidth(false)))
+                hoverMode = HoverMode.PART;
+            if (GUILayout.Toggle(hoverMode == HoverMode.UI, "UI", GUILayout.ExpandWidth(false)))
+                hoverMode = HoverMode.UI;
+            if (GUILayout.Toggle(hoverMode == HoverMode.OBJECT, "GameObject", GUILayout.ExpandWidth(false)))
+                hoverMode = HoverMode.OBJECT;
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Label("Search scene and assets ", GUILayout.ExpandWidth(false));
+
+            string newFilter = GUILayout.TextField(searchFilter);
+
+            if (newFilter != searchFilter)
             {
-                hierarchyFilter = newFilter;
-                OnSelectionAboutToChange();
-                selectionChain = new List<Transform>(); // clear selection - used for first match
-                OnSelectionChanged();
-                hierarchyRegex = new Regex(hierarchyFilter, RegexOptions.IgnoreCase);
-                filterTypes = new List<System.Type>();
-                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+                searchFilter = newFilter;
+                ClearSelection();
+                if (searchFilter.Length > 2)
                 {
-                    foreach (var type in asm.GetTypes())
-                    {
-                        if ((hierarchyFilter.Length > 4 ? FilterName(type.Name) : type.Name == hierarchyFilter)
-                            && type != typeof(Component)
-                            && type != typeof(MonoBehaviour)
-                            && type.IsSubclassOf(typeof(Component)))
-                        {
-                            filterTypes.Add(type);
-                        }
-                    }
+                    SearchAllTransforms(searchRootOnly);
                 }
             }
+
+            searchRootOnly = GUILayout.Toggle(searchRootOnly, "Root only", GUILayout.ExpandWidth(false));
+
             GUILayout.EndHorizontal();
+
+
 
             // Begin a scroll view.
             hierarchyScroll = GUILayout.BeginScrollView(hierarchyScroll, HighLogic.Skin.scrollView);
 
-            // Begin listing all transforms with no parents.
-            ListChildren(0, null);
+            DrawHierarchy();
 
             // End the scroll view.
             GUILayout.EndScrollView();
@@ -295,86 +316,274 @@ namespace KerbalObjectInspector
             GUI.DragWindow();
         }
 
-        /// <summary>
-        /// Draws controls for game objects based on the given parent and depth level.
-        /// </summary>
-        /// <param name="depth">The depth of the listing iteration.</param>
-        /// <param name="parent">The parent to check for children. If null, draws for all root objects.</param>
-        void ListChildren(int depth, Transform parent, bool printToFile = false)
+        private void DrawHierarchy()
         {
-            if (allTrans == null)
+            if (rootTransforms.Count == 0)
                 return;
 
-            if (selectionChain == null)
-                return;
+            bool hasDrawnSelection = false;
 
-            // Iterate through the list of transforms.
-            foreach (Transform trans in allTrans)
+            foreach (Transform root in rootTransforms)
             {
-                if (trans == null) continue;
-
-                // If the current transform's parent is the provided, or if the current transform's parent is null AND the provided parent object is null,
-                if ((parent == null && trans.parent == null) || (parent != null && trans.parent == parent))
+                if (selectionChain.Count == 0 || root != selectionChain[0])
                 {
-                    // Begin a horizontal section.
-                    GUILayout.BeginHorizontal();
+                    DrawTransform(root, 0, false);
+                    continue;
+                }
 
-                    // Introduce a space multiplied by the depth, for indenting child controls.
-                    GUILayout.Space(10f * (float)depth);
+                hasDrawnSelection = true;
+                DrawSelectionChain();
+            }
 
-                    // Initialize as false by default.
-                    bool isSelected = false;
+            if (!hasDrawnSelection && selectionChain.Count > 0)
+            {
+                DrawSelectionChain();
+            }
+        }
 
-                    // If the selection chain's list count is greater than the current depth,
-                    if (selectionChain.Count > depth)
+        private void DrawSelectionChain()
+        {
+            for (int i = 0; i < selectionChain.Count; i++)
+            {
+                Transform child = selectionChain[i];
+                bool isSelected;
+                if (i + 1 < selectionChain.Count && selectionChain[i + 1].parent == child)
+                    isSelected = true;
+                else if (child == selectedTransform)
+                    isSelected = true;
+                else
+                    isSelected = false;
+
+                DrawTransform(child, selectionChainDepth[i], isSelected);
+            }
+        }
+
+        private void DrawTransform(Transform transform, int depth, bool isSelected)
+        {
+            if (!showInactive && !transform.gameObject.activeInHierarchy)
+                return;
+
+            string label;
+            if (transform == selectedTransform)
+                label = "<color=white><b>" + transform.gameObject.name + "</b></color>";
+            else if (isSelected)
+                label = "<color=white>" + transform.gameObject.name + "</color>";
+            else if (!transform.gameObject.activeInHierarchy)
+                label = "<color=orange>" + transform.gameObject.name + "</color>";
+            else
+                label = transform.gameObject.name;
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(10f * depth);
+            if (GUILayout.Button(label, HighLogic.Skin.label))
+            {
+                if (transform == selectedTransform)
+                {
+                    if (transform.parent == null)
                     {
-                        // And the current transform is the same as the current selection chain object,
-                        if (trans == selectionChain[depth])
+                        ClearSelection();
+                    }
+                    else if (rootTransforms.Contains(transform.parent) || selectionChain.Contains(transform.parent))
+                    {
+                        SelectTransform(transform.parent);
+                    }
+                }
+                else
+                {
+                    SelectTransform(transform);
+                }
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        #endregion
+
+        #region TRANSFORM FINDING
+
+        private void SelectHoveredTransform()
+        {
+            if (hoverMode == HoverMode.UI)
+            {
+                var pointer = new PointerEventData(EventSystem.current);
+                pointer.position = Input.mousePosition;
+
+                var raycastResults = new List<RaycastResult>();
+                EventSystem.current.RaycastAll(pointer, raycastResults);
+
+                if (raycastResults.Count > 0)
+                    hovered = raycastResults[0].gameObject.transform;
+                else
+                    hovered = null;
+            }
+            else if (hoverMode == HoverMode.PART)
+            {
+                if (Mouse.HoveredPart != null)
+                    hovered = Mouse.HoveredPart.gameObject.transform;
+                else
+                    hovered = null;
+            }
+            else if (hoverMode == HoverMode.OBJECT)
+            {
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                int layerMask = ~0;
+
+                RaycastHit hit;
+                if (Physics.Raycast(ray, out hit, float.MaxValue, layerMask))
+                    hovered = hit.collider.gameObject.transform;
+                else
+                    hovered = null;
+            }
+
+            if (hovered != lastHovered)
+            {
+                lastHovered = hovered;
+                if (hovered != null)
+                {
+                    SelectTransform(hovered);
+                }
+            }
+        }
+
+        private void FindSceneRootTransforms()
+        {
+            rootTransforms.Clear();
+
+            GameObject temp = null;
+            Scene? dontDestroyOnLoadScene = null;
+            try
+            {
+                temp = new GameObject();
+                DontDestroyOnLoad(temp);
+                dontDestroyOnLoadScene = temp.scene;
+                DestroyImmediate(temp);
+                temp = null;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+            }
+            finally
+            {
+                if (temp != null)
+                    DestroyImmediate(temp);
+            }
+
+            if (dontDestroyOnLoadScene != null)
+            {
+                foreach (GameObject rootGO in dontDestroyOnLoadScene?.GetRootGameObjects())
+                {
+                    rootTransforms.Add(rootGO.transform);
+                }
+            }
+
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                foreach (GameObject rootGO in SceneManager.GetSceneAt(i).GetRootGameObjects())
+                {
+                    rootTransforms.Add(rootGO.transform);
+                }
+            }
+        }
+
+        private void SearchAllTransforms(bool rootOnly, bool noFilter = false)
+        {
+            rootTransforms.Clear();
+
+            foreach (Transform transform in Resources.FindObjectsOfTypeAll<Transform>())
+            {
+                if (noFilter)
+                {
+                    if (transform.parent == null)
+                    {
+                        rootTransforms.Add(transform);
+                    }
+                    continue;
+                }
+                else if (rootOnly && transform.parent != null)
+                {
+                    continue;
+                }
+
+                if (transform.gameObject.name.IndexOf(searchFilter, System.StringComparison.InvariantCultureIgnoreCase) >= 0)
+                {
+                    rootTransforms.Add(transform);
+                }
+                else
+                {
+                    foreach (Component component in transform.gameObject.GetComponents<Component>())
+                    {
+                        if (component.GetType().Name.IndexOf(searchFilter, System.StringComparison.InvariantCultureIgnoreCase) >= 0)
                         {
-                            // The current object is selected at this depth level. It will be searched for children and show as green in the view.
-                            isSelected = true;
+                            rootTransforms.Add(component.gameObject.transform);
                         }
-                    }
-                    if (printToFile)
-                    {
-                        File.AppendAllText("ObjectInfo.txt", trans.gameObject.name + ",");                         
-                    }
-                    bool rightButton = false;
-                    // Draw a button. If the button is clicked,
-                    if (GUILayout.Button((isSelected ? "" : "<color=#ffffffff>") + trans.gameObject.name + (isSelected ? "" : "</color>"), HighLogic.Skin.label))
-                    {
-                        rightButton = (Event.current.button == 1);
-                        if (rightButton)
-                            File.AppendAllText("ObjectInfo.txt", "\n" +trans.gameObject.name + ",");
-                        // Signal a future selection chain change.
-                        OnSelectionAboutToChange();
-
-                        // If the button is closer to the root than the chain is deep,
-                        if (selectionChain.Count > depth)
-                        {
-                            // Cut the chain back down to the correct length.
-                            selectionChain = selectionChain.GetRange(0, depth);
-                        }
-
-                        // Add the newly selected transform to the possible truncated selection chain.
-                        selectionChain.Add(trans);
-
-                        // Signal a change in the selection chain.
-                        OnSelectionChanged();
-                    }
-
-
-                    // End the horizontal section.
-                    GUILayout.EndHorizontal();
-
-                    // If the current transform is selected,
-                    if (isSelected)
-                    {
-                        // Recursively search it for children and draw their controls.
-                        ListChildren(depth + 1, trans, rightButton);
                     }
                 }
             }
+        }
+
+        #endregion
+
+        #region SELECTION MANAGEMENT
+
+        private void SelectTransform(Transform selected)
+        {
+            OnSelectionAboutToChange();
+
+            selectedTransform = selected;
+            selectionChain.Clear();
+            selectionChainDepth.Clear();
+
+            if (selectedTransform == null)
+                return;
+
+            List<Transform> directChain = new List<Transform>();
+
+            directChain.Add(selected);
+            while (directChain[directChain.Count - 1].parent != null)
+            {
+                directChain.Add(directChain[directChain.Count - 1].parent);
+            }
+
+            directChain.Reverse();
+
+            selectionChain.Add(directChain[0]);
+            selectionChainDepth.Add(0);
+
+            Transform[] allChilds = directChain[0].GetComponentsInChildren<Transform>(showInactive);
+
+            FindChainChildsRecursive(0, allChilds, directChain);
+
+            OnSelectionChanged();
+        }
+
+        private void FindChainChildsRecursive(int minLevel, Transform[] allChilds, List<Transform> directChain)
+        {
+            int maxLevel = directChain.Count - 1;
+            for (int i = minLevel; i <= maxLevel; i++)
+            {
+                foreach (Transform transform in allChilds)
+                {
+                    if (transform.parent == directChain[i])
+                    {
+                        selectionChain.Add(transform);
+                        selectionChainDepth.Add(i + 1);
+
+                        if (i + 1 < directChain.Count && transform == directChain[i + 1])
+                        {
+                            FindChainChildsRecursive(i + 1, allChilds, directChain);
+                            maxLevel = i;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ClearSelection()
+        {
+            OnSelectionAboutToChange();
+            selectionChain.Clear();
+            selectionChainDepth.Clear();
+            selectedTransform = null;
         }
 
         /// <summary>
@@ -382,43 +591,24 @@ namespace KerbalObjectInspector
         /// </summary>
         void OnSelectionAboutToChange()
         {
-            // For each transform in the chain,
-            foreach (Transform trans in selectionChain)
+            // Try to remove any WireFrame components found.
+            try
             {
-                // Try to remove any WireFrame components found.
-                try
-                {
-                    Destroy(trans.gameObject.GetComponent<WireFrame>());
-                }
-                catch { }
+                Destroy(selectedTransform.gameObject.GetComponent<WireFrame>());
             }
+            catch { }
         }
 
         void OnSelectionChanged()
         {
-            for (int i = 0; i < selectionChain.Count; i++)
+            // If the transform has some form of mesh renderer,
+            if (selectedTransform.GetComponent<MeshFilter>() || selectedTransform.GetComponent<SkinnedMeshRenderer>())
             {
-                // If the transform has some form of mesh renderer,
-                if (selectionChain[i].GetComponent<MeshFilter>() || selectionChain[i].GetComponent<SkinnedMeshRenderer>())
-                {
-                    // Add a WireFrame object to it.
-                    WireFrame added = selectionChain[i].gameObject.AddComponent<WireFrame>();
-
-                    // If the current index doesn't point to the last in the chain,
-                    if (i < selectionChain.Count - 1)
-                    {
-                        // Dim the color a bit.
-                        added.lineColor = new Color(0.0f, 0.5f, 0.75f);
-                    }
-                }
+                // Add a WireFrame object to it.
+                WireFrame added = selectedTransform.gameObject.AddComponent<WireFrame>();
             }
         }
 
-        void OnDestroy()
-        {
-            OnSelectionAboutToChange();
-            toolbarControl.OnDestroy();
-            Destroy(toolbarControl);
-        }
+        #endregion
     }
 }
