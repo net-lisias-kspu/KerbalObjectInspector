@@ -90,7 +90,7 @@ namespace KerbalObjectInspector
             // Instantiate the selection chain.
             selectionChain = new List<Transform>();
             // Create the initial window bounds.
-            hierarchyRect = new Rect(50f, 50f, 450f, 800f);
+            hierarchyRect = new Rect(50f, 50f, 375f, 800f);
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
 
@@ -271,15 +271,11 @@ namespace KerbalObjectInspector
 
             GUILayout.BeginHorizontal();
 
-            showInactive = GUILayout.Toggle(showInactive, "Show <color=orange>inactive</color>", GUILayout.Width(125f));
+            showInactive = GUILayout.Toggle(showInactive, "Show <color=orange>inactive</color>", GUILayout.Width(120f));
 
-            GUILayout.Space(20f);
+            hierarchyLocked = !GUILayout.Toggle(!hierarchyLocked, "Watch changes", GUILayout.Width(120f));
 
-            hierarchyLocked = !GUILayout.Toggle(!hierarchyLocked, "Watch changes", GUILayout.Width(125f));
-
-            GUILayout.Space(20f);
-
-            if (drawWireFrame != GUILayout.Toggle(drawWireFrame, "Draw wireframe", GUILayout.Width(125f)))
+            if (drawWireFrame != GUILayout.Toggle(drawWireFrame, "Draw wireframe", GUILayout.Width(120f)))
             {
                 RemoveWireFrameFromSelection();
                 if (!drawWireFrame)
