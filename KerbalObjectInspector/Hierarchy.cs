@@ -9,6 +9,7 @@ using ToolbarControl_NS;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using System;
+using KSP.UI;
 //using ClickThroughFix;
 
 namespace KerbalObjectInspector
@@ -70,11 +71,14 @@ namespace KerbalObjectInspector
         private Transform hovered;
         private Transform lastHovered;
 
+        private bool drawWireFrame = true;
         private bool showInactive = false;
         private bool hierarchyLocked = false;
         private string searchFilter = "";
         private bool searchRootOnly = false;
         private bool allAssetsMode = false;
+
+        private static Material glMaterial;
 
         #region LIFECYCLE
 
@@ -93,6 +97,8 @@ namespace KerbalObjectInspector
             AddButton();
 
             DontDestroyOnLoad(this);
+
+            glMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
 
             GameEvents.onGameSceneSwitchRequested.Add(OnSceneSwitch);
         }
@@ -125,7 +131,7 @@ namespace KerbalObjectInspector
 
         void OnDestroy()
         {
-            OnSelectionAboutToChange();
+            RemoveWireFrameFromSelection();
             toolbarControl.OnDestroy();
             GameEvents.onGameSceneSwitchRequested.Remove(OnSceneSwitch);
             Destroy(toolbarControl);
@@ -212,6 +218,7 @@ namespace KerbalObjectInspector
             // Draw the Hierarchy window.
             hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy", HighLogic.Skin.window);
 
+
             // If there is something in the selection chain,
             if (!ReferenceEquals(selectedTransform, null))
             {
@@ -229,6 +236,9 @@ namespace KerbalObjectInspector
                 {
                     editor.DrawGUI();
                 }
+
+                DrawSelectionRectTransform();
+
             }
             else
             {
@@ -261,11 +271,27 @@ namespace KerbalObjectInspector
 
             GUILayout.BeginHorizontal();
 
-            showInactive = GUILayout.Toggle(showInactive, "Show <color=orange>inactive</color> objects", GUILayout.ExpandWidth(false));
+            showInactive = GUILayout.Toggle(showInactive, "Show <color=orange>inactive</color>", GUILayout.Width(125f));
 
             GUILayout.Space(20f);
 
-            hierarchyLocked = !GUILayout.Toggle(!hierarchyLocked, "Watch hierarchy changes", GUILayout.ExpandWidth(false));
+            hierarchyLocked = !GUILayout.Toggle(!hierarchyLocked, "Watch changes", GUILayout.Width(125f));
+
+            GUILayout.Space(20f);
+
+            if (drawWireFrame != GUILayout.Toggle(drawWireFrame, "Draw wireframe", GUILayout.Width(125f)))
+            {
+                RemoveWireFrameFromSelection();
+                if (!drawWireFrame)
+                {
+                    drawWireFrame = true;
+                    AddWireFrameToSelection();
+                }
+                else
+                {
+                    drawWireFrame = false;
+                }
+            }
 
             GUILayout.EndHorizontal();
 
@@ -301,8 +327,6 @@ namespace KerbalObjectInspector
             searchRootOnly = GUILayout.Toggle(searchRootOnly, "Root only", GUILayout.ExpandWidth(false));
 
             GUILayout.EndHorizontal();
-
-
 
             // Begin a scroll view.
             hierarchyScroll = GUILayout.BeginScrollView(hierarchyScroll, HighLogic.Skin.scrollView);
@@ -527,7 +551,7 @@ namespace KerbalObjectInspector
 
         private void SelectTransform(Transform selected)
         {
-            OnSelectionAboutToChange();
+            RemoveWireFrameFromSelection();
 
             selectedTransform = selected;
             selectionChain.Clear();
@@ -553,7 +577,7 @@ namespace KerbalObjectInspector
 
             FindChainChildsRecursive(0, allChilds, directChain);
 
-            OnSelectionChanged();
+            AddWireFrameToSelection();
         }
 
         private void FindChainChildsRecursive(int minLevel, Transform[] allChilds, List<Transform> directChain)
@@ -580,7 +604,7 @@ namespace KerbalObjectInspector
 
         private void ClearSelection()
         {
-            OnSelectionAboutToChange();
+            RemoveWireFrameFromSelection();
             selectionChain.Clear();
             selectionChainDepth.Clear();
             selectedTransform = null;
@@ -589,7 +613,7 @@ namespace KerbalObjectInspector
         /// <summary>
         /// Called when the selection chain is about to change.
         /// </summary>
-        void OnSelectionAboutToChange()
+        private void RemoveWireFrameFromSelection()
         {
             // Try to remove any WireFrame components found.
             try
@@ -599,14 +623,66 @@ namespace KerbalObjectInspector
             catch { }
         }
 
-        void OnSelectionChanged()
+        private void AddWireFrameToSelection()
         {
+            if (!drawWireFrame)
+                return;
+
             // If the transform has some form of mesh renderer,
             if (selectedTransform.GetComponent<MeshFilter>() || selectedTransform.GetComponent<SkinnedMeshRenderer>())
             {
                 // Add a WireFrame object to it.
-                WireFrame added = selectedTransform.gameObject.AddComponent<WireFrame>();
+                selectedTransform.gameObject.AddComponent<WireFrame>();
             }
+        }
+
+        private void DrawSelectionRectTransform()
+        {
+            if (!drawWireFrame || selectedTransform == null || !(selectedTransform is RectTransform rectTransform))
+                return;
+
+            if (UIMasterController.Instance == null)
+                return;
+
+            Canvas canvas = UIMasterController.Instance.appCanvas;
+
+            Vector3[] corners = new Vector3[4];
+            Vector3[] screenCorners = new Vector3[2];
+
+            rectTransform.GetWorldCorners(corners);
+
+            if (canvas.renderMode == RenderMode.ScreenSpaceCamera || canvas.renderMode == RenderMode.WorldSpace)
+            {
+                screenCorners[0] = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[1]);
+                screenCorners[1] = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[3]);
+            }
+            else
+            {
+                screenCorners[0] = RectTransformUtility.WorldToScreenPoint(null, corners[1]);
+                screenCorners[1] = RectTransformUtility.WorldToScreenPoint(null, corners[3]);
+            }
+
+            GL.PushMatrix();
+            glMaterial.SetPass(0);
+            GL.LoadPixelMatrix();
+            GL.Begin(GL.LINES);
+
+            GL.Color(Color.green);
+
+            GL.Vertex3(screenCorners[0].x, screenCorners[0].y, 0);
+            GL.Vertex3(screenCorners[0].x, screenCorners[1].y, 0);
+
+            GL.Vertex3(screenCorners[0].x, screenCorners[1].y, 0);
+            GL.Vertex3(screenCorners[1].x, screenCorners[1].y, 0);
+
+            GL.Vertex3(screenCorners[1].x, screenCorners[1].y, 0);
+            GL.Vertex3(screenCorners[1].x, screenCorners[0].y, 0);
+
+            GL.Vertex3(screenCorners[1].x, screenCorners[0].y, 0);
+            GL.Vertex3(screenCorners[0].x, screenCorners[0].y, 0);
+
+            GL.End();
+            GL.PopMatrix();
         }
 
         #endregion
