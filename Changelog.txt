@@ -40,3 +40,8 @@
 1.1.8.1
 	Updated shader name with "Legacy Shaders/"
 	Added checks for obsolete attributes in  Inspector.cs
+
+1.1.8.2
+	Renamed DLL for CKAN compatibility
+	Added AssemblyFileVersion
+	Updated version file for 1.12
