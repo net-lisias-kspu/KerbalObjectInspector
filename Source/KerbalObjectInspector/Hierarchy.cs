@@ -17,6 +17,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+using GUI = KSPe.UI.GUI;
+using GUILayout = KSPe.UI.GUILayout;
+
 namespace KerbalObjectInspector
 {
     /// <summary>
