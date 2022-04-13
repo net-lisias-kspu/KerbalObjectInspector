@@ -4,7 +4,7 @@
 		© 2016-2022 linuxgurugamer
 		© 2016 IRnifty
 
-	Kerbal Object Inspector /L is double licensed, as follows:
+	Kerbal Object Inspector /L is licensed as follows:
 		* GPL 3.0 : https://www.gnu.org/licenses/gpl-3.0.txt
 
 	Kerbal Object Inspector /L is distributed in the hope that it will
