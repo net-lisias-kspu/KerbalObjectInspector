@@ -1,5 +1,8 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2019-1103: 1.1.8 (LinuxGuruGamer) for KSP 1.8.1
+	+ Added Right click on object line will write tree data (descending from that point) to a file:  ObjectInfo.txt
+	+ Updated for KSP 1.8
 * 2019-0727: 1.1.7.3 (LinuxGuruGamer) for KSP 1.7.3
 	+ Added InstallChecker
 	+ Updated AssemblyVersion.tt
