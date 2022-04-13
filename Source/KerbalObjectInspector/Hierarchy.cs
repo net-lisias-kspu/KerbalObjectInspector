@@ -1,6 +1,7 @@
 ﻿/*
 	This file is part of Kerbal Object Inspector /L Unleashed
 		© 2022 LisiasT
+		© 2016-2022 linuxgurugamer
 		© 2016 IRnifty
 
 	Kerbal Object Inspector /L is double licensed, as follows:
@@ -14,8 +15,13 @@
 	along with Kerbal Object Inspector /L.
 	If not, see <https://www.gnu.org/licenses/>.
 */
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+
+using KSP.UI;
 
 using GUI = KSPe.UI.GUI;
 using GUILayout = KSPe.UI.GUILayout;
@@ -25,40 +31,37 @@ namespace KerbalObjectInspector
     /// <summary>
     /// The Hierarchy addon. This addon is designed to inspect the scene and list all game objects via Transform searching.
     /// </summary>
-    [KSPAddon(KSPAddon.Startup.EveryScene, false)]
+    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     public class Hierarchy : MonoBehaviour
     {
+		internal static Hierarchy Instance { get; private set; }
+
         /// <summary>
         /// The number of times per second this addon will attempt to update.
         /// </summary>
-        private int updatesPerSecond = 10;
-
-        /// <summary>
-        /// The time as a float in seconds this addon will wait until the next update.
-        /// </summary>
-        private float UpdateTime
-        {
-            get { return 1f / (float)updatesPerSecond; }
-        }
+        private const int maxSkippedUpdates = 10;
 
         /// <summary>
         /// The current time since last update.
         /// </summary>
-        private float currentTime = 0f;
+        private float skippedUpdates = 0;
 
-        /// <summary>
-        /// An array of all transforms in the scene.
-        /// </summary>
-        private Transform[] allTrans;
-        /// <summary>
-        /// The chain of selected transforms leading to the current selected transform.
-        /// </summary>
-        private List<Transform> selectionChain;
+        /// <summary> all root transforms in the scene + all dontDestroyOnLoad scene root transforms </summary>
+        private List<Transform> rootTransforms = new List<Transform>();
+
+        /// <summary>The chain of selected transforms leading to the current selected transform.  </summary>
+        private List<Transform> selectionChain = new List<Transform>();
+
+        private List<int> selectionChainDepth = new List<int>();
+
+        /// <summary> The currently selected transform </summary>
+        private Transform selectedTransform;
 
         /// <summary>
         /// The bounds of the Hierarchy window.
         /// </summary>
-        private Rect hierarchyRect;
+        public Rect hierarchyRect;
+
         /// <summary>
         /// The current scroll position of the window's scroll view.
         /// </summary>
@@ -69,6 +72,30 @@ namespace KerbalObjectInspector
         /// </summary>
         private Inspector inspector = null;
 
+        public ValueEditor editor = null;
+
+        private bool showUI;
+
+        private enum HoverMode { PART, UI, OBJECT };
+
+        private HoverMode hoverMode = HoverMode.PART;
+
+        private Transform hovered;
+        private Transform lastHovered;
+
+        private bool drawWireFrame = true;
+        private bool showInactive = false;
+        private bool hierarchyLocked = false;
+        private string searchFilter = "";
+        private bool searchRootOnly = false;
+        private bool allAssetsMode = false;
+
+        private float wheelOriginalScale;
+
+        private static Material glMaterial;
+
+        #region LIFECYCLE
+
         /// <summary>
         /// Called when this MonoBehaviour starts.
         /// </summary>
@@ -77,31 +104,84 @@ namespace KerbalObjectInspector
             // Instantiate the selection chain.
             selectionChain = new List<Transform>();
             // Create the initial window bounds.
-            hierarchyRect = new Rect(50f, 50f, 500f, 1000f);
+            hierarchyRect = new Rect(50f, 50f, 375f, 800f);
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
+
+            DontDestroyOnLoad(this);
+
+            glMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
+            wheelOriginalScale = GameSettings.AXIS_MOUSEWHEEL.primary.scale;
+
+            GameEvents.onGameSceneSwitchRequested.Add(OnSceneSwitch);
+			Instance = this;
+         }
+
+		private void OnSceneSwitch(GameEvents.FromToAction<GameScenes, GameScenes> data)
+        {
+            DisableMouseWheel(true);
+            rootTransforms.Clear();
+            ClearSelection();
         }
+
+        void OnDestroy()
+        {
+			Instance = null;
+            RemoveWireFrameFromSelection();
+            GameEvents.onGameSceneSwitchRequested.Remove(OnSceneSwitch);
+        }
+
+        #endregion
+
+        #region CORE UPDATE
 
         /// <summary>
         /// Called when this Monobehaviour is updated.
         /// </summary>
         void Update()
         {
-            // Increment the current time since updating.
-            currentTime += Time.deltaTime;
+            if (!showUI)
+                return;
 
-            // If the current time since updating passes the update threshold,
-            if (currentTime >= UpdateTime)
+            if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
             {
-                // Subtract time until it is less than the threshold.
-                do
-                {
-                    currentTime -= UpdateTime;
-                } while (currentTime >= UpdateTime);
-
-                // Update the list of transforms.
-                allTrans = GameObject.FindObjectsOfType(typeof(Transform)) as Transform[];
+                SelectHoveredTransform();
             }
+
+            if (skippedUpdates < maxSkippedUpdates)
+            {
+                skippedUpdates++;
+                return;
+            }
+
+            skippedUpdates = 0;
+
+            if (searchFilter.Length == 0)
+            {
+                if (!hierarchyLocked)
+                {
+                    if (allAssetsMode)
+                    {
+                        SearchAllTransforms(true, true);
+                    }
+                    else
+                    {
+                        FindSceneRootTransforms();
+                    }
+                }
+            }
+        }
+
+        internal void ToggleShow()
+        {
+            if (showUI)
+            {
+                ClearSelection();
+                rootTransforms.Clear();
+            }
+
+            showUI = !showUI;
+            DisableMouseWheel();
         }
 
         /// <summary>
@@ -109,23 +189,71 @@ namespace KerbalObjectInspector
         /// </summary>
         void OnGUI()
         {
+            if (!showUI)
+                return;
+
+            // make sure the objects are still valid
+            for (int i = 0; i < selectionChain.Count; i++)
+            {
+                if (selectionChain[i] == null || selectionChain[i].gameObject == null)
+                {
+                    ClearSelection();
+                    break;
+                }
+            }
+
+            for (int i = rootTransforms.Count - 1; i >= 0; i--)
+            {
+                if (rootTransforms[i] == null || rootTransforms[i].gameObject == null)
+                {
+                    rootTransforms.RemoveAt(i);
+                }
+            }
+
             // Draw the Hierarchy window.
             hierarchyRect = GUI.Window(GetInstanceID(), hierarchyRect, HierarchyWindow, "Hierarchy", HighLogic.Skin.window);
 
+
             // If there is something in the selection chain,
-            if (selectionChain.Count > 0)
+            if (!ReferenceEquals(selectedTransform, null))
             {
                 // If the inspector is null,
                 if (inspector == null)
                 {
                     // Create a new inspector.
-                    inspector = new Inspector(GetInstanceID() + 1, hierarchyRect);
+                    inspector = new Inspector(this, GetInstanceID() + 1, hierarchyRect);
                 }
 
                 // Draw the inspector GUI.
-                inspector.DrawGUI(selectionChain[selectionChain.Count - 1]);
+                inspector.DrawGUI(selectedTransform);
+
+                if (editor != null)
+                {
+                    editor.DrawGUI();
+                }
+
+                DrawSelectionRectTransform();
+
             }
+            else
+            {
+                if (editor != null)
+                {
+                    editor = null;
+                }
+
+                if (inspector != null)
+                {
+                    inspector.isVisible = false;
+                }
+            }
+
+            DisableMouseWheel();
         }
+
+        #endregion
+
+        #region DRAW UI
 
         /// <summary>
         /// Draws the Hierarchy window.
@@ -133,125 +261,448 @@ namespace KerbalObjectInspector
         /// <param name="windowID">The window ID.</param>
         void HierarchyWindow(int windowID)
         {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Label("Root objects : ", GUILayout.ExpandWidth(false));
+            if (GUILayout.Toggle(!allAssetsMode, "Current scene", GUILayout.ExpandWidth(false)))
+                allAssetsMode = false;
+            if (GUILayout.Toggle(allAssetsMode, "All assets (slow !)", GUILayout.ExpandWidth(false)))
+                allAssetsMode = true;
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+
+            showInactive = GUILayout.Toggle(showInactive, "Show <color=orange>inactive</color>", GUILayout.Width(120f));
+
+            hierarchyLocked = !GUILayout.Toggle(!hierarchyLocked, "Watch changes", GUILayout.Width(120f));
+
+            if (drawWireFrame != GUILayout.Toggle(drawWireFrame, "Draw wireframe", GUILayout.Width(120f)))
+            {
+                RemoveWireFrameFromSelection();
+                if (!drawWireFrame)
+                {
+                    drawWireFrame = true;
+                    AddWireFrameToSelection();
+                }
+                else
+                {
+                    drawWireFrame = false;
+                }
+            }
+
+            GUILayout.EndHorizontal();
+
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Label("Alt + hover selection mode : ", GUILayout.ExpandWidth(false));
+            if (GUILayout.Toggle(hoverMode == HoverMode.PART, "Part", GUILayout.ExpandWidth(false)))
+                hoverMode = HoverMode.PART;
+            if (GUILayout.Toggle(hoverMode == HoverMode.UI, "UI", GUILayout.ExpandWidth(false)))
+                hoverMode = HoverMode.UI;
+            if (GUILayout.Toggle(hoverMode == HoverMode.OBJECT, "GameObject", GUILayout.ExpandWidth(false)))
+                hoverMode = HoverMode.OBJECT;
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Label("Search scene and assets ", GUILayout.ExpandWidth(false));
+
+            string newFilter = GUILayout.TextField(searchFilter);
+
+            if (newFilter != searchFilter)
+            {
+                searchFilter = newFilter;
+                ClearSelection();
+                if (searchFilter.Length > 2)
+                {
+                    SearchAllTransforms(searchRootOnly);
+                }
+            }
+
+            searchRootOnly = GUILayout.Toggle(searchRootOnly, "Root only", GUILayout.ExpandWidth(false));
+
+            GUILayout.EndHorizontal();
+
             // Begin a scroll view.
             hierarchyScroll = GUILayout.BeginScrollView(hierarchyScroll, HighLogic.Skin.scrollView);
 
-            // Begin listing all transforms with no parents.
-            ListChildren(0, null);
+            DrawHierarchy();
 
             // End the scroll view.
             GUILayout.EndScrollView();
 
             // Allow the user to drag the window.
-            GUI.DragWindow(new Rect(0f, 0f, 500f, 20f));
+            GUI.DragWindow();
         }
 
-        /// <summary>
-        /// Draws controls for game objects based on the given parent and depth level.
-        /// </summary>
-        /// <param name="depth">The depth of the listing iteration.</param>
-        /// <param name="parent">The parent to check for children. If null, draws for all root objects.</param>
-        void ListChildren(int depth, Transform parent)
+        private void DrawHierarchy()
         {
-            // Iterate through the list of transforms.
-            foreach (Transform trans in allTrans)
+            if (rootTransforms.Count == 0)
+                return;
+
+            bool hasDrawnSelection = false;
+
+            foreach (Transform root in rootTransforms)
             {
-                // If the current transform's parent is the provided, or if the current transform's parent is null AND the provided parent object is null,
-                if (trans.parent == parent)
+                if (selectionChain.Count == 0 || root != selectionChain[0])
                 {
-                    // Begin a horizontal section.
-                    GUILayout.BeginHorizontal();
+                    DrawTransform(root, 0, false);
+                    continue;
+                }
 
-                    // Introduce a space multiplied by the depth, for indenting child controls.
-                    GUILayout.Space(10f * (float)depth);
+                hasDrawnSelection = true;
+                DrawSelectionChain();
+            }
 
-                    // Initialize as false by default.
-                    bool isSelected = false;
+            if (!hasDrawnSelection && selectionChain.Count > 0)
+            {
+                DrawSelectionChain();
+            }
+        }
 
-                    // If the selection chain's list count is greater than the current depth,
-                    if (selectionChain.Count > depth)
+        private void DrawSelectionChain()
+        {
+            for (int i = 0; i < selectionChain.Count; i++)
+            {
+                Transform child = selectionChain[i];
+                bool isSelected;
+                if (i + 1 < selectionChain.Count && selectionChain[i + 1].parent == child)
+                    isSelected = true;
+                else if (child == selectedTransform)
+                    isSelected = true;
+                else
+                    isSelected = false;
+
+                DrawTransform(child, selectionChainDepth[i], isSelected);
+            }
+        }
+
+        private void DrawTransform(Transform transform, int depth, bool isSelected)
+        {
+            if (!showInactive && !transform.gameObject.activeInHierarchy)
+                return;
+
+            string label;
+            if (transform == selectedTransform)
+                label = "<color=white><b>" + transform.gameObject.name + "</b></color>";
+            else if (isSelected)
+                label = "<color=white>" + transform.gameObject.name + "</color>";
+            else if (!transform.gameObject.activeInHierarchy)
+                label = "<color=orange>" + transform.gameObject.name + "</color>";
+            else
+                label = transform.gameObject.name;
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(10f * depth);
+            if (GUILayout.Button(label, HighLogic.Skin.label))
+            {
+                if (transform == selectedTransform)
+                {
+                    if (transform.parent == null)
                     {
-                        // And the current transform is the same as the current selection chain object,
-                        if (trans == selectionChain[depth])
-                        {
-                            // The current object is selected at this depth level. It will be searched for children and show as green in the view.
-                            isSelected = true;
-                        }
+                        ClearSelection();
                     }
-
-                    // Draw a button. If the button is clicked,
-                    if (GUILayout.Button((isSelected ? "" : "<color=#ffffffff>") + trans.gameObject.name + (isSelected ? "" : "</color>"), HighLogic.Skin.label))
+                    else if (rootTransforms.Contains(transform.parent) || selectionChain.Contains(transform.parent))
                     {
-                        // Signal a future selection chain change.
-                        OnSelectionAboutToChange();
-
-                        // If the button is closer to the root than the chain is deep,
-                        if (selectionChain.Count > depth)
-                        {
-                            // Cut the chain back down to the correct length.
-                            selectionChain = selectionChain.GetRange(0, depth);
-                        }
-
-                        // Add the newly selected transform to the possible truncated selection chain.
-                        selectionChain.Add(trans);
-
-                        // Signal a change in the selection chain.
-                        OnSelectionChanged();
+                        SelectTransform(transform.parent);
                     }
+                }
+                else
+                {
+                    SelectTransform(transform);
+                }
+            }
+            GUILayout.EndHorizontal();
+        }
 
-                    // End the horizontal section.
-                    GUILayout.EndHorizontal();
+        private void DisableMouseWheel(bool forceEnabled = false)
+        {
+            // disable camera mouse scrolling on mouse over
+            if (!forceEnabled && showUI)
+            {
+                Vector2 mousePos = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+                bool mouseOver = hierarchyRect.Contains(mousePos);
+                mouseOver |= inspector != null && inspector.isVisible && inspector.rect.Contains(mousePos);
+                mouseOver |= editor != null && editor.rect.Contains(mousePos);
 
-                    // If the current transform is selected,
-                    if (isSelected)
+                if (mouseOver)
+                {
+                    GameSettings.AXIS_MOUSEWHEEL.primary.scale = 0.0f;
+                    return;
+                }
+            }
+
+            GameSettings.AXIS_MOUSEWHEEL.primary.scale = wheelOriginalScale;
+        }
+
+        #endregion
+
+        #region TRANSFORM FINDING
+
+        private void SelectHoveredTransform()
+        {
+            if (hoverMode == HoverMode.UI)
+            {
+                var pointer = new PointerEventData(EventSystem.current);
+                pointer.position = Input.mousePosition;
+
+                var raycastResults = new List<RaycastResult>();
+                EventSystem.current.RaycastAll(pointer, raycastResults);
+
+                if (raycastResults.Count > 0)
+                    hovered = raycastResults[0].gameObject.transform;
+                else
+                    hovered = null;
+            }
+            else if (hoverMode == HoverMode.PART)
+            {
+                if (Mouse.HoveredPart != null)
+                    hovered = Mouse.HoveredPart.gameObject.transform;
+                else
+                    hovered = null;
+            }
+            else if (hoverMode == HoverMode.OBJECT)
+            {
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                int layerMask = ~0;
+
+                RaycastHit hit;
+                if (Physics.Raycast(ray, out hit, float.MaxValue, layerMask))
+                    hovered = hit.collider.gameObject.transform;
+                else
+                    hovered = null;
+            }
+
+            if (hovered != lastHovered)
+            {
+                lastHovered = hovered;
+                if (hovered != null)
+                {
+                    SelectTransform(hovered);
+                }
+            }
+        }
+
+        private void FindSceneRootTransforms()
+        {
+            rootTransforms.Clear();
+
+            GameObject temp = null;
+            Scene? dontDestroyOnLoadScene = null;
+            try
+            {
+                temp = new GameObject();
+                DontDestroyOnLoad(temp);
+                dontDestroyOnLoadScene = temp.scene;
+                DestroyImmediate(temp);
+                temp = null;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+            }
+            finally
+            {
+                if (temp != null)
+                    DestroyImmediate(temp);
+            }
+
+            if (dontDestroyOnLoadScene != null)
+            {
+                foreach (GameObject rootGO in dontDestroyOnLoadScene?.GetRootGameObjects())
+                {
+                    rootTransforms.Add(rootGO.transform);
+                }
+            }
+
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                foreach (GameObject rootGO in SceneManager.GetSceneAt(i).GetRootGameObjects())
+                {
+                    rootTransforms.Add(rootGO.transform);
+                }
+            }
+        }
+
+        private void SearchAllTransforms(bool rootOnly, bool noFilter = false)
+        {
+            rootTransforms.Clear();
+
+            foreach (Transform transform in Resources.FindObjectsOfTypeAll<Transform>())
+            {
+                if (noFilter)
+                {
+                    if (transform.parent == null)
                     {
-                        // Recursively search it for children and draw their controls.
-                        ListChildren(depth + 1, trans);
+                        rootTransforms.Add(transform);
+                    }
+                    continue;
+                }
+                else if (rootOnly && transform.parent != null)
+                {
+                    continue;
+                }
+
+                if (transform.gameObject.name.IndexOf(searchFilter, System.StringComparison.InvariantCultureIgnoreCase) >= 0)
+                {
+                    rootTransforms.Add(transform);
+                }
+                else
+                {
+                    foreach (Component component in transform.gameObject.GetComponents<Component>())
+                    {
+                        if (component.GetType().Name.IndexOf(searchFilter, System.StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        {
+                            rootTransforms.Add(component.gameObject.transform);
+                        }
                     }
                 }
             }
+        }
+
+        #endregion
+
+        #region SELECTION MANAGEMENT
+
+        private void SelectTransform(Transform selected)
+        {
+            RemoveWireFrameFromSelection();
+
+            selectedTransform = selected;
+            selectionChain.Clear();
+            selectionChainDepth.Clear();
+
+            if (selectedTransform == null)
+                return;
+
+            List<Transform> directChain = new List<Transform>();
+
+            directChain.Add(selected);
+            while (directChain[directChain.Count - 1].parent != null)
+            {
+                directChain.Add(directChain[directChain.Count - 1].parent);
+            }
+
+            directChain.Reverse();
+
+            selectionChain.Add(directChain[0]);
+            selectionChainDepth.Add(0);
+
+            Transform[] allChilds = directChain[0].GetComponentsInChildren<Transform>(showInactive);
+
+            FindChainChildsRecursive(0, allChilds, directChain);
+
+            AddWireFrameToSelection();
+        }
+
+        private void FindChainChildsRecursive(int minLevel, Transform[] allChilds, List<Transform> directChain)
+        {
+            int maxLevel = directChain.Count - 1;
+            for (int i = minLevel; i <= maxLevel; i++)
+            {
+                foreach (Transform transform in allChilds)
+                {
+                    if (transform.parent == directChain[i])
+                    {
+                        selectionChain.Add(transform);
+                        selectionChainDepth.Add(i + 1);
+
+                        if (i + 1 < directChain.Count && transform == directChain[i + 1])
+                        {
+                            FindChainChildsRecursive(i + 1, allChilds, directChain);
+                            maxLevel = i;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ClearSelection()
+        {
+            RemoveWireFrameFromSelection();
+            selectionChain.Clear();
+            selectionChainDepth.Clear();
+            selectedTransform = null;
         }
 
         /// <summary>
         /// Called when the selection chain is about to change.
         /// </summary>
-        void OnSelectionAboutToChange()
+        private void RemoveWireFrameFromSelection()
         {
-            // For each transform in the chain,
-            foreach(Transform trans in selectionChain)
+            // Try to remove any WireFrame components found.
+            try
             {
-                // Try to remove any WireFrame components found.
-                try
-                {
-                    Destroy(trans.GetComponent<WireFrame>());
-                }
-                catch { }
+                Destroy(selectedTransform.gameObject.GetComponent<WireFrame>());
+            }
+            catch { }
+        }
+
+        private void AddWireFrameToSelection()
+        {
+            if (!drawWireFrame || selectedTransform == null)
+                return;
+
+            // If the transform has some form of mesh renderer,
+            if (selectedTransform.GetComponent<MeshFilter>() || selectedTransform.GetComponent<SkinnedMeshRenderer>())
+            {
+                // Add a WireFrame object to it.
+                selectedTransform.gameObject.AddComponent<WireFrame>();
             }
         }
 
-        void OnSelectionChanged()
+        private void DrawSelectionRectTransform()
         {
-            for (int i = 0; i < selectionChain.Count; i++ )
+            if (!drawWireFrame || selectedTransform == null || !(selectedTransform is RectTransform rectTransform))
+                return;
+
+            if (UIMasterController.Instance == null)
+                return;
+
+            Canvas canvas = UIMasterController.Instance.appCanvas;
+
+            Vector3[] corners = new Vector3[4];
+            Vector3[] screenCorners = new Vector3[2];
+
+            rectTransform.GetWorldCorners(corners);
+
+            if (canvas.renderMode == RenderMode.ScreenSpaceCamera || canvas.renderMode == RenderMode.WorldSpace)
             {
-                // If the transform has some form of mesh renderer,
-                if (selectionChain[i].GetComponent<MeshFilter>() || selectionChain[i].GetComponent<SkinnedMeshRenderer>())
-                {
-                    // Add a WireFrame object to it.
-                    WireFrame added = selectionChain[i].gameObject.AddComponent<WireFrame>();
-
-                    // If the current index doesn't point to the last in the chain,
-                    if (i < selectionChain.Count - 1)
-                    {
-                        // Dim the color a bit.
-                        added.lineColor = new Color(0.0f, 0.5f, 0.75f);
-                    }
-                }
+                screenCorners[0] = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[1]);
+                screenCorners[1] = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[3]);
             }
+            else
+            {
+                screenCorners[0] = RectTransformUtility.WorldToScreenPoint(null, corners[1]);
+                screenCorners[1] = RectTransformUtility.WorldToScreenPoint(null, corners[3]);
+            }
+
+            GL.PushMatrix();
+            glMaterial.SetPass(0);
+            GL.LoadPixelMatrix();
+            GL.Begin(GL.LINES);
+
+            GL.Color(Color.green);
+
+            GL.Vertex3(screenCorners[0].x, screenCorners[0].y, 0);
+            GL.Vertex3(screenCorners[0].x, screenCorners[1].y, 0);
+
+            GL.Vertex3(screenCorners[0].x, screenCorners[1].y, 0);
+            GL.Vertex3(screenCorners[1].x, screenCorners[1].y, 0);
+
+            GL.Vertex3(screenCorners[1].x, screenCorners[1].y, 0);
+            GL.Vertex3(screenCorners[1].x, screenCorners[0].y, 0);
+
+            GL.Vertex3(screenCorners[1].x, screenCorners[0].y, 0);
+            GL.Vertex3(screenCorners[0].x, screenCorners[0].y, 0);
+
+            GL.End();
+            GL.PopMatrix();
         }
 
-        void OnDestroy()
-        {
-            OnSelectionAboutToChange();
-        }
+        #endregion
     }
 }

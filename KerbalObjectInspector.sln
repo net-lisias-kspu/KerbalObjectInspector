@@ -26,5 +26,13 @@ Global
 		$0.TextStylePolicy = $2
 		$2.FileWidth = 132
 		$2.scope = text/plain
+		$0.TextStylePolicy = $3
+		$3.inheritsSet = null
+		$3.scope = text/x-csharp
+		$0.CSharpFormattingPolicy = $4
+		$4.SpaceAfterColonInBaseTypeDeclaration = False
+		$4.SpaceAfterSemicolonsInForStatement = False
+		$4.SpaceBeforeColonInBaseTypeDeclaration = False
+		$4.scope = text/x-csharp
 	EndGlobalSection
 EndGlobal
