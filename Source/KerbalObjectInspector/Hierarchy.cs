@@ -15,6 +15,7 @@
 	along with Kerbal Object Inspector /L.
 	If not, see <https://www.gnu.org/licenses/>.
 */
+using System;
 ﻿using System.Collections.Generic;
 
 using UnityEngine;
@@ -35,6 +36,10 @@ namespace KerbalObjectInspector
     public class Hierarchy : MonoBehaviour
     {
 		internal static Hierarchy Instance { get; private set; }
+		private const float WINDOW_MAX_HEIGHT = 800f;
+		private const float WINDOW_LEFT_POS = 50f;
+		private const float WINDOW_TOP_POS = 50f;
+		private const float WINDOW_WIDTH = 375f;
 
         /// <summary>
         /// The number of times per second this addon will attempt to update.
@@ -104,7 +109,15 @@ namespace KerbalObjectInspector
             // Instantiate the selection chain.
             selectionChain = new List<Transform>();
             // Create the initial window bounds.
-            hierarchyRect = new Rect(50f, 50f, 375f, 800f);
+            {
+                float h = Math.Min(Screen.height*0.95f, WINDOW_MAX_HEIGHT);
+                hierarchyRect = new Rect(
+                        WINDOW_LEFT_POS
+                        , h + WINDOW_TOP_POS > Screen.height ? (Screen.height - h) / 2 : WINDOW_TOP_POS
+                        , WINDOW_WIDTH
+                        , h
+                    );
+            }
             // Create the initial scroll position.
             hierarchyScroll = Vector2.zero;
 
