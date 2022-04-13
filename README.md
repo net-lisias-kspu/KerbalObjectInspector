@@ -2,13 +2,6 @@
 
 **Kerbal Object Inspector** allows you to see every game object and their properties.
 
-- Easy to use interface.
-- Lists all game objects, mesh or not.
-- Organizes game objects based on the Unity hierarchy. Child objects are displayed indented under parent objects.
-- Displays transform and other component information for any game object.
-- Efficiently renders a wireframe on any game object with a mesh.
-- Objects that are a parent of the selected object have dimmer wireframes.
-
 [Unleashed](https://ksp.lisias.net/add-ons-unleashed/) fork by Lisias.
 
 

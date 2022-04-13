@@ -1,5 +1,13 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2022-0413: 1.2.0.1 (LisiasT) for KSP >= 1.3.1
+	+ Adding KSPe facilities
+		- Log
+		- Abstracted GUI
+		- Abstracted File System
+		- Installment Checks
+		- Toolbar
+	+ Certified to work on KSP 1.3.1 to 1.12.3! :)
 * 2022-0125: 1.2.0 (LinuxGuruGamer) for KSP 1.12.2
 	+ Thanks to @gotmachine for all of these changes:
 		- Hirearchy : reworked the general UI options
