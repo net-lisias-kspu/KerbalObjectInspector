@@ -1,5 +1,7 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2017-0105: 1.1.2 (LinuxGuruGamer) for KSP 1.2.2
+	+ Adds Sorting, Searching, and to MainMenu
 * 2016-1105: 1.1.1 (LinuxGuruGamer) for KSP 1.2.2
 	+ Initial release for 1.2
 	+ Fixed Nullrefs
