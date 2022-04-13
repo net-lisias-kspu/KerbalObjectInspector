@@ -1,5 +1,6 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2019-0109: 1.1.7.2 (LinuxGuruGamer) for KSP 1.6.0
 * 2018-1028: 1.1.7.1 (LinuxGuruGamer) for KSP 1.5.1
 	+ Version bump for 1.5 rebuild
 * 2018-1007: 1.1.7 (LinuxGuruGamer) for KSP 1.4.5
