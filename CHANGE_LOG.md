@@ -1,5 +1,9 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2021-0808: 1.1.8.2 (LinuxGuruGamer) for KSP 1.12.2
+	+ Renamed DLL for CKAN compatibility
+	+ Added AssemblyFileVersion
+	+ Updated version file for 1.12
 * 2019-1104: 1.1.8.1 (LinuxGuruGamer) for KSP 1.8.1
 	+ Updated shader name with "Legacy Shaders/"
 	+ Added checks for obsolete attributes in  Inspector.cs
