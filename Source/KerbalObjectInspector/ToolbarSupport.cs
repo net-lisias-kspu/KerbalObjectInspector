@@ -42,6 +42,7 @@ namespace KerbalObjectInspector
 		private void Start()
 		{
 			Toolbar.Controller.Instance.Register<ToolbarController>(Version.FriendlyName);
+			this.Register();
 		}
 
 		// State controller for the toobar button
