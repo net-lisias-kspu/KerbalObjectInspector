@@ -1,5 +1,8 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2018-1007: 1.1.7 (LinuxGuruGamer) for KSP 1.4.5
+	+ Added properties to the component inspector
+	+ Component inspector field and properties also show base class properties (BindingFlags.FlattenHierarchy)
 * 2018-0418: 1.1.6 (LinuxGuruGamer) for KSP 1.4.2
 	+ Updated for KSP 1.4.1+
 	+ added support for the Clickthrough Blocker
