@@ -1,5 +1,10 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2018-0418: 1.1.6 (LinuxGuruGamer) for KSP 1.4.2
+	+ Updated for KSP 1.4.1+
+	+ added support for the Clickthrough Blocker
+	+ Added support for the toolbar Controller
+	+ Updated button texture with transparancy
 * 2017-1010: 1.1.5 (LinuxGuruGamer) for KSP 1.3.1
 	+ KSP 1.3.1 update
 * 2017-0528: 1.1.4 (LinuxGuruGamer) for KSP 1.3.0
