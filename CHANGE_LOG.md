@@ -1,5 +1,7 @@
 # Kerbal Object Inspector /L Unleashed :: Change Log
 
+* 2017-0528: 1.1.4 (LinuxGuruGamer) for KSP 1.3.0
+	+ Updated for 1.3
 * 2017-0218: 1.1.3 (LinuxGuruGamer) for KSP 1.2.2
 	+ Reduced spacing in inspector
 * 2017-0105: 1.1.2 (LinuxGuruGamer) for KSP 1.2.2
