@@ -1,0 +1,18 @@
+{
+	"NAME"		: "Kerbal Object Inspector /L Unleashed",
+	"URL"		: "https://raw.githubusercontent.com/net-lisias-kspu/KerbalObjectInspector/master/KerbalObjectInspector.version",
+	"DOWNLOAD"	: "https://github.com/net-lisias-kspu/KerbalObjectInspector/releases",
+	"CHANGE_LOG"	: "https://raw.githubusercontent.com/net-lisias-kspu/KerbalObjectInspector/master/CHANGE_LOG.md",
+	"CHANGE_LOG_URL": "https://raw.githubusercontent.com/net-lisias-kspu/KerbalObjectInspector/master/CHANGES.md",
+	"VERSION":{
+		"MAJOR":1,
+		"MINOR":0,
+		"PATCH":0,
+		"BUILD":0
+		},
+	"KSP_VERSION_MIN":{
+		"MAJOR":1,
+		"MINOR":3,
+		"PATCH":1
+		}
+}
