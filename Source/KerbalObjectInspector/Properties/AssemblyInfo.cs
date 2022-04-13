@@ -5,13 +5,13 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("KerbalObjectInspector")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("Kerbal Object Inspector")]
+[assembly: AssemblyDescription("Allows you to see every game object and their properties.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("KerbalObjectInspector")]
-[assembly: AssemblyCopyright("Copyright ©  2015")]
-[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCompany(KerbalObjectInspector.LegalMamboJambo.Company)]
+[assembly: AssemblyProduct(KerbalObjectInspector.LegalMamboJambo.Product)]
+[assembly: AssemblyCopyright(KerbalObjectInspector.LegalMamboJambo.Copyright)]
+[assembly: AssemblyTrademark(KerbalObjectInspector.LegalMamboJambo.Trademark)]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

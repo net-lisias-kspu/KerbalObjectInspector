@@ -14,27 +14,14 @@
 	along with Kerbal Object Inspector /L.
 	If not, see <https://www.gnu.org/licenses/>.
 */
-using UnityEngine;
-
+using System;
 namespace KerbalObjectInspector
 {
-    [KSPAddon(KSPAddon.Startup.EveryScene, false)]
-    class WireCam : MonoBehaviour
-    {
-        Camera wireCam;
-
-        void Start()
-        {
-            GameObject camObj = Camera.main.gameObject;
-
-            wireCam = camObj.AddComponent<Camera>();
-
-            wireCam.cullingMask = 1 << int.MaxValue;
-        }
-
-        void OnDestroy()
-        {
-            Destroy(wireCam);
-        }
-    }
+	public static class LegalMamboJambo
+	{
+		public const string Company = "/L Aerospace KSP Division";
+		public const string Copyright = "©2022 LisiasT";
+		public const string Product = "Kerbal Object Inspector";
+		public const string Trademark = "Kerbal Object Inspector™ by IRnifty, /L by LisiasT";
+	}
 }
