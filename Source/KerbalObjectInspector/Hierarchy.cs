@@ -42,7 +42,7 @@ namespace KerbalObjectInspector
 		private const float WINDOW_WIDTH = 375f;
 
         /// <summary>
-        /// The number of times per second this addon will attempt to update.
+        /// How many frames will be slipped before running the whole process. Meant to reduce the workload on hot code.
         /// </summary>
         private const int maxSkippedUpdates = 10;
 
@@ -501,6 +501,8 @@ namespace KerbalObjectInspector
 
         private void FindSceneRootTransforms()
         {
+            // Note: We only dare to use try-catch on hot code (this method is called by Update) because
+            // the Update is not fully executed every call. See `skippedUpdates`.
             rootTransforms.Clear();
 
             GameObject temp = null;
@@ -523,20 +525,28 @@ namespace KerbalObjectInspector
                     DestroyImmediate(temp);
             }
 
-            if (dontDestroyOnLoadScene != null)
+            if (dontDestroyOnLoadScene != null) try
             {
                 foreach (GameObject rootGO in dontDestroyOnLoadScene?.GetRootGameObjects())
                 {
                     rootTransforms.Add(rootGO.transform);
                 }
             }
+            catch (System.ArgumentException e)
+            {
+                Log.dbg("Got a {e}.", e.ToString());
+            }
 
-            for (int i = 0; i < SceneManager.sceneCount; i++)
+            for (int i = 0; i < SceneManager.sceneCount; i++) try
             {
                 foreach (GameObject rootGO in SceneManager.GetSceneAt(i).GetRootGameObjects())
                 {
                     rootTransforms.Add(rootGO.transform);
                 }
+            }
+            catch (System.ArgumentException e)
+            {
+                Log.dbg("Got a {e}.", e.ToString());
             }
         }
 
