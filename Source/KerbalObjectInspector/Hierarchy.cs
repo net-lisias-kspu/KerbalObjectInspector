@@ -515,7 +515,7 @@ namespace KerbalObjectInspector
             }
             catch (System.Exception e)
             {
-                Debug.LogException(e);
+                Log.error(e, this);
             }
             finally
             {

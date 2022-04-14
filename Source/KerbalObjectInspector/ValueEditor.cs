@@ -241,7 +241,7 @@ namespace KerbalObjectInspector
             }
             catch (Exception e)
             {
-                Debug.LogError(e);
+                Log.error(e, this);
             }
         }
 
@@ -256,7 +256,7 @@ namespace KerbalObjectInspector
             }
             catch (Exception e)
             {
-                Debug.LogError(e);
+                Log.error(e, this);
             }
         }
     }
